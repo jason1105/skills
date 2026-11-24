@@ -1,6 +1,6 @@
 ---
 name: prd-parser
-version: "1.0.0"
+version: "1.1.0"
 domain: power-aux-service
 description: >
   当拿到任何形式的需求文档、PRD、功能说明或设计稿时，第一个运行的 Skill。
@@ -16,6 +16,13 @@ description: >
 把任意格式的需求文档，变成 `docs/requirements-structured.md`。
 
 后续所有 Skill 都以该文件为输入，文件不存在则所有下游 Skill 停止执行。
+
+## 落位与基线（仓有 GitLab 议题/MR 流程时）
+
+- 输入是**基线目录**（`NN-需求号/`：00-来源记录/01-原始资料/02-解析/03-差异与疑点）时，结构化基准落该目录 `04-需求结构化基准.md`（目录最大号递增，不叫 requirements-structured.md）；此时 02-解析/03-差异与疑点已含部分结构，**以冻结原件为准逐类对齐补全**，不从解析件抄转述
+- 冻结 docx 用 python zipfile 抽 `word/document.xml` 文本（`<w:p>` 分段、拼 `<w:t>`）；评审回复的 Q&A 逐条读，Q 编号作来源锚（回复有重号/跳号时照录进疑点清单，不重排）
+- 冲突口径已被回复裁定的（两份需求正文对同一场景写法不一致、回复选边），BR 写裁定侧、疑点表登记原文冲突与裁定出处；**建议式/非终局的回复**（「建议…」「暂无规则，出现再定」）不算裁定——进疑点清单带临时假设
+- 产出后走 prd-source-baseline 三查再进 prd-detail-design；Step 1-3 的对话内输出惯例在基线目录模式下可合并为「成文即落盘＋自检报告」
 
 ---
 
