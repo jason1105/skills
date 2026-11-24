@@ -1,6 +1,6 @@
 ---
 name: prd-interactive-prototype
-version: "1.2.0"
+version: "1.3.0"
 author: lvwei
 license: MIT
 description: Use when 编写 PRD 或生成可交互原型时，产出带需求卡片双向溯源的自包含 HTML 原型与配套需求卡片文档。
@@ -102,4 +102,6 @@ metadata:
 
 ## 执行入口
 
-接到「出 PRD／出原型／需求评审材料」类任务时：先读《PRD编写规则》（`~/.agents/skills/prd-review/rules/PRD编写规则.md`，唯一现行规范；《PRD编写规范》已停用），再按本规范产出三件套；对已有原型迭代时先检查其补丁层结构再动手。
+接到「出 PRD／出原型／需求评审材料」类任务时：先读《PRD编写规则》（`prd-review/rules/PRD编写规则.md`，唯一现行规范；《PRD编写规范》已停用），再按本规范产出三件套；对已有原型迭代时先检查其补丁层结构再动手。
+
+本 skill 正本在仓库 `~/MyProjects/lvwei/ai/skills/prd-interactive-prototype/`（改动：仓库编辑 → `npx skills add <仓库> -g --skill prd-interactive-prototype` 装回 → commit/push）。skill_manage 对 CLI 软链 skill 报 not found 属正常（skill_view 仍可读）——直接改仓库，勿在安装层重建。

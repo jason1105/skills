@@ -1,6 +1,6 @@
 ---
 name: prd-detail-design
-version: "1.0.0"
+version: "1.1.0"
 author: lvwei
 license: MIT
 description: Use when 从需求稿生成《产品需求详细设计》MD，或迭代已有详设。
@@ -22,7 +22,7 @@ metadata:
 ## 样本与规范
 
 - 结构样本：Market 详细设计（`~/Downloads/AI Agent 智能体/Market 系统详细设计+可交互原型/Market_产品需求详细设计.md`；被移动时 mdfind -name "Market_产品需求详细设计"）——章节骨架与功能点七段式见 `references/structure.md` 与 `references/feature-anatomy.md`
-- 写作规范：《PRD编写规则》（`~/.agents/skills/prd-review/rules/PRD编写规则.md`，唯一现行规范；《PRD编写规范》已停用不用）
+- 写作规范：《PRD编写规则》（`prd-review/rules/PRD编写规则.md`，唯一现行规范；《PRD编写规范》已停用不用）。本 skill 正本在仓库 `~/MyProjects/lvwei/ai/skills/prd-detail-design/`（改动：仓库编辑 → `npx skills add <仓库> -g --skill prd-detail-design` 装回 → commit/push）
 
 ## 生成流程
 
