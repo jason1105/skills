@@ -19,7 +19,7 @@
 
 ### 仅本机安装（不入仓，见 .gitignore）
 
-- dev-pipeline / requirement-analyst / spec-coder / system-architect / task-planner / task-skill-creator（本地四角色流水线，2026-11-24 拍板不迁）
+- 无（四角色流水线已于 2026-11-24 删除，历史见 git log 951787f 前的 commit，废纸篓可恢复）
 - find-skills、last30days、majiayu000-backend-design-review、orca-cli（托管勿动）、product-monster-featurelist、product-monster-prd、web-perf、performance-optimization（外来/CLI 管理）
 
 ## 约定
