@@ -49,17 +49,14 @@ metadata:
 
 skill 发现机制（实测）：grok 原生扫 `~/.agents/`、`~/.grok/`、`~/.claude/`、`~/.cursor/` 四目录；cc 读 `~/.claude/skills/`；codex 读 `~/.codex/skills/`；Hermes 读 `~/.hermes/skills/<category>/<name>/`（唯一带 category 子目录）。`~/.agents/skills/` 是跨 agent 共享标准位（open SKILL.md 格式各家通用）。
 
-## 布局与维护流程
+## 布局与维护流程（repo-first 新常态）
 
-1. **正本放 `~/.agents/skills/<name>/`**（平铺无 category；frontmatter 用 open 标准 name+description，Hermes 专属 metadata.hermes 等扩展字段对其他 agent 是无害冗余，保留）。
-2. **各家软链接入**（相对链，一次建好）：
-   - `ln -s ../../.agents/skills/<name> ~/.claude/skills/<name>`
-   - `ln -s ../../.agents/skills/<name> ~/.codex/skills/<name>`
-   - grok 零配置（原生扫 ~/.agents）
-   - Hermes：`ln -s ../../../.agents/skills/<name> ~/.hermes/skills/<category>/<name>`（保留 category 归位）
-   - cursor 启用 .cursor/skills 后同样加链
-3. **skill 间引用写纯文本**（「姊妹 skill：X 产出详设，本 skill 消费」）——related_skills 元数据是 Hermes 专属，别依赖它传跨 agent 语义。
-4. **改 skill 的通道**：优先 skill_manage（Hermes 侧软链会写到正本）；skill_manage 报 not found 时说明 Hermes 软链未挂或断开，用 terminal 直接改正本并修链。
+1. **正本＝仓库** `~/MyProjects/lvwei/ai/skills/<name>/`（平铺无 category；frontmatter 用 open 标准 name+description，Hermes 专属 metadata.hermes 等扩展字段无害保留）。`~/.agents/skills/` 里属于自己的条目已是 CLI 装的生成物，不再手放正本。
+2. **改自有 skill**：仓库改 → `npx skills add ~/MyProjects/lvwei/ai/skills -g --skill <name>` 装回实测 → commit/push；机器间同步 `npx skills update -g`。
+3. **跨 agent 分发**：`npx skills add <repo> -g` 勾选 agent。实测接入形态：cc/grok/hermes 得各自目录软链；**codex/cursor 走 ~/.agents 共享位、不建独立目录**——验证 cursor 别去 ls ~/.cursor/skills（空是正常），查 ~/.agents/skills/。
+4. **仅本地临时接入**（不入仓）才手工软链：`ln -s ../../.agents/skills/<name> ~/.claude/skills/<name>`；Hermes 带 category 时 `ln -s ../../../.agents/skills/<name> ~/.hermes/skills/<category>/<name>`。
+5. **skill 间引用写纯文本**——related_skills 元数据是 Hermes 专属，别依赖它传跨 agent 语义。
+6. **skill_manage 管不到 CLI 装的软链 skill**（报 not found 但 skill_view 可读）：这是注册表边界不是 skill 丢失；直接改仓库正本再重装，别在 ~/.hermes 下重建造成双正本。
 
 ## 坑
 
