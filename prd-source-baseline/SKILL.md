@@ -1,6 +1,6 @@
 ---
 name: prd-source-baseline
-version: "1.1.0"
+version: "1.2.0"
 author: lvwei
 license: MIT
 description: Use when 详设动笔前定基线：查在途 MR 是否改同一源件、源件归位与编号占号，详设只写已合并口径。
@@ -14,8 +14,8 @@ metadata:
 
 ## When to Use
 
-- 用户要求「根据 XX需求.md 生成需求详细设计」且仓有 GitLab 议题/MR 流程时，动笔前先跑本 skill 的三查
-- 本 skill 是 `prd-detail-design` 生成流程的前置步骤：基线钉不准，详设评审对象会随 rebase 漂移
+- 用户要求「根据 XX需求.md 生成需求详细设计」或「用 prd-parser 整理成结构化文档」且仓有 GitLab 议题/MR 流程时，动笔前先跑本 skill 的三查——**任何以基线源件为输入的成文件**（结构化基准/详设/卡片）都适用
+- 本 skill 是 `prd-detail-design`/`prd-parser` 生成流程的前置步骤：基线钉不准，评审对象会随 rebase 漂移
 
 ## 一查：基线版本（在途 MR 不吸收）
 
