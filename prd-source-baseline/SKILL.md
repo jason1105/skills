@@ -1,6 +1,6 @@
 ---
 name: prd-source-baseline
-version: "1.0.0"
+version: "1.1.0"
 author: lvwei
 license: MIT
 description: Use when 详设动笔前定基线：查在途 MR 是否改同一源件、源件归位与编号占号，详设只写已合并口径。
@@ -20,7 +20,7 @@ metadata:
 ## 一查：基线版本（在途 MR 不吸收）
 
 1. 把基线钉在**已合并默认分支**的源件版本上：`git show origin/<default>:<源件路径>` 读定版本号，与工作树版本 diff 确认无未合并差异混入
-2. 查在途 MR：`glab api "projects/<id>/merge_requests?state=opened"` → 逐条 `.../merge_requests/<iid>/changes` 看是否改同一源件（该 13.11 无 `/diffs` 端点、404；用 `/changes`；权威量级以 `git fetch origin <branch>` 后 `git diff --stat origin/<default>...origin/<branch> -- <源件>` 为准）
+2. 查在途 MR：`glab api "projects/<id>/merge_requests?state=opened"` → 逐条 `.../merge_requests/<iid>/changes` 看是否改同一源件（该 13.11 无 `/diffs` 端点、404；用 `/changes`；权威量级以 `git fetch origin <branch>` 后 `git diff --stat origin/<default>...origin/<branch> -- <源件>` 为准）。**实现类在途 MR（改代码不改源件）也要登记**：详设的「实现状态映射表」与文头「代码现状」行须区分已并 master 与在途——把在途任务的未合并行为写进判定细则，评审对象同样会漂
 3. 命中在途 MR 时四件事：① 详设不写它的未合并口径（新 REQ、改写条目、新裁决）；② 详设文头基线行写明「源件 vX.Y」；③ 附录「不纳入/后续」登记「该 MR 合并后详设须按新版迭代一轮」；④ 本任务 MR 描述写明两 MR 改同一文件、合并/rebase 顺序待用户拍板
 
 原因：详设会被文对文评审——评审对象必须在评审期间稳定；未合并口径随 rebase 漂移会让评审记录失效，吸收未合并裁决还会把「提议」当「拍板」写进冻结件。
