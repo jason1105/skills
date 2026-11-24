@@ -10,7 +10,7 @@
 
 | 分类 | skill |
 |---|---|
-| PRD 工具链 | prd-parser → prd-detail-design → prd-interactive-prototype → prd-review（基准 rules/PRD编写规则.md）；prd-source-baseline |
+| PRD 工具链 | prd-source-baseline(基线三查) → prd-clarify(澄清关口 Q-xx/R-xx) → prd-parser → prd-detail-design → prd-interactive-prototype → prd-review（基准 rules/PRD编写规则.md） |
 | 后端流水线 | backend-dev（父）+ backend-api/ddl/detailed-design/implementation/quality-gate/requirement-breakdown/verification/artifact-summary、markdown-lint（镜像备份：上游＝公司仓 devcenter/ai-code/skills，以本仓镜像为准时需回流公司仓） |
 | 跨 agent 协作 | cross-agent-skill-ops、calling-hermes、calling-deepseek-harness、calling-opencode、calling-openhands |
 | GitLab 接入 | check-gitlab、install-gitlab |
