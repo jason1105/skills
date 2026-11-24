@@ -42,8 +42,8 @@ metadata:
 ## 需求编号与功能标注（用户已定）
 
 - 需求编号统一为 **REQ-{需求号}-xxx** 格式（用户已定）：需求号来自外部编号体系（禅道 story 号等，如 47589），卡片序号 xxx 从 01 起连续；如 REQ-47589-01。无外部需求号时用仓内系统代称或日期作需求号段，保持全期唯一、不复用。编号一旦在本期发出，改名要三件同步换（MD＋HTML 全量替换）并跑浏览器回归确认深链/卡片/FAB 徽标都指向新编号
-- 原型页面上在相应功能处标注需求编号（.reqtag 徽标）：导航按钮尾部小字标本期涉及编号、视图 H2 标题尾部标主编号、表格列头按列语义标对应编号（如「判定结果 REQ-47589-01」）、关键控件旁标（如故障注入开关标三分状态需求）
-- reqtag 徽标可点击：onclick 调 `locateFromCard(id)`，从页面反向定位到抽屉内该卡片。**页面→抽屉定位契约（五连，缺一即“点了没反应”）**：① 抽屉未开则打开（只切 class，壳不重建）② 清掉会遮住目标的过滤——storyQuery 置空、storyModule 回「全部」（目标卡片可能被活动搜索词或模块 chip 筛掉，不清则定位落空；拍板口径 2026-11-24：点徽标意图是“立刻看到这条需求”，必达优先于保筛选）③ storyOpen=id 展开目标卡片四段式 ④ 目标卡片滚入抽屉可视区——展开卡片常高于列表视口，`scrollIntoView({block:'center'})` 会把卡头推出视口（实测踩过），改为手动把卡头对齐列表顶部（`list.scrollTop = el.offsetTop - list.offsetTop - 6`） ⑤ 卡片行加高亮描边（≈2s 与定位提示条同寿命）
+- 原型页面上在相应功能处标注需求编号（.reqtag 徽标）：导航按钮尾部、视图 H2 标题尾部、表格列头、关键控件旁。**徽标文案一律用完整需求号（REQ-47589-01），不用短号（01）或语义短标签（「矩阵」）**——短号在评审时对不上卡片（用户拍板 2026-11-24）
+- reqtag 徽标可点击：onclick 调 `locateFromCard(id)`，从页面反向定位到抽屉内该卡片。**页面→抽屉定位契约（五连，缺一即“点了没反应”）**：① 抽屉未开则打开（只切 class，壳不重建）② 清掉会遮住目标的过滤——storyQuery 置空、storyModule 回「全部」（目标卡片可能被活动搜索词或模块 chip 筛掉，不清则定位落空；拍板口径 2026-11-24：点徽标意图是“立刻看到这条需求”，必达优先于保筛选）③ storyOpen=id 展开目标卡片四段式（正文 display 需可见，验收断言含此项）④ 目标卡片滚入抽屉可视区——展开卡片常高于列表视口，`scrollIntoView({block:'center'})` 会把卡头推出视口（实测踩过），改为手动把卡头对齐列表顶部（`list.scrollTop = el.offsetTop - list.offsetTop - 6`） ⑤ 卡片行加高亮描边（≈2s 与定位提示条同寿命）。**列表重绘会替换旧节点：展开/滚动/高亮必须包在 requestAnimationFrame 里重取节点再操作**（实测踩过：同步取到的旧节点随后被 renderStories 替换，操作全部落空——表现为「只开抽屉不开具体卡片」）
 - reqtag 徽标嵌在可点击元素（列表行、Tab、按钮）内时，onclick 里必须 `event.stopPropagation()`——否则先触发宿主元素的行点击/视图切换，定位被吞
 - **「页面标注」总开关**：抽屉搜索框旁放 checkbox「页面标注」，控制页面上全部 reqtag 徽标的显隐（默认开）；评审演示时可关掉看干净界面，只留抽屉。开关只切 CSS 类（如 body.hide-reqtags .reqtag{display:none}），不重绘页面、不动抽屉内卡片
 - 徽标样式：accent-bg 底色 + mono 字体 10px + hover 反色，与 FAB/抽屉同一强调色体系
@@ -108,4 +108,4 @@ metadata:
 
 接到「出 PRD／出原型／需求评审材料」类任务时：先读《PRD编写规则》（`prd-review/rules/PRD编写规则.md`，唯一现行规范；《PRD编写规范》已停用），再按本规范产出三件套；对已有原型迭代时先检查其补丁层结构再动手。
 
-本 skill 正本在仓库 `~/MyProjects/lvwei/ai/skills/prd-interactive-prototype/`（改动：仓库编辑 → `npx skills add <仓库> -g --skill prd-interactive-prototype` 装回 → commit/push）。skill_manage 对 CLI 软链 skill 报 not found 属正常（skill_view 仍可读）——直接改仓库，勿在安装层重建。
+本 skill 正本在仓库 `~/.agents/skills/prd-interactive-prototype/`（2026-11-24 随 skills 仓迁入 ~/.agents；旧路径 ~/MyProjects/lvwei/ai/skills 已废）（改动：仓库编辑 → `npx skills add <仓库> -g --skill prd-interactive-prototype` 装回 → commit/push）。skill_manage 对 CLI 软链 skill 报 not found 属正常（skill_view 仍可读）——直接改仓库，勿在安装层重建。
