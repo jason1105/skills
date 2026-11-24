@@ -58,6 +58,13 @@ skill 发现机制（实测）：grok 原生扫 `~/.agents/`、`~/.grok/`、`~/.
 5. **skill 间引用写纯文本**——related_skills 元数据是 Hermes 专属，别依赖它传跨 agent 语义。
 6. **skill_manage 管不到 CLI 装的软链 skill**（报 not found 但 skill_view 可读）：这是注册表边界不是 skill 丢失；直接改仓库正本再重装，别在 ~/.hermes 下重建造成双正本。
 
+
+## Hermes category 语义与双挂模式（已验证）
+
+- Hermes 按路径深度定 category：`category/name/SKILL.md` 三段取首段；顶层两段返回 None，呈现为 **general**。`npx skills` CLI 不认识 category 约定，一律装 `~/.hermes/skills/` 顶层＝general
+- **双挂模式**：CLI 顶层挂载（skills_list/skill_view 按名解析）＋手工在 `~/.hermes/skills/<category>/<name>` 补软链指同一 `~/.agents` 正本（用户分类视图）。同目标 symlink 视图被 resolve_skill_catalog 标 shadowed、不告警，名字解析仍取一个——无害，是特性不是债
+- **红线：清「双挂」勿删分类侧软链**。用户按 category 找 skill（productivity/ 下的 PRD 工具链），CLI 重装后顺手清掉 category 链＝用户视角「skill 消失」。去重判据：两条链指向**不同正本**才需处理；同目标双链保留
+
 ## 坑
 
 - **rm 目录后立即 ln 可能没删干净**：Finder 占用等原因，软链会建进残留目录内部（目录里出现同名链）。ln 前 `readlink` 验证目标不存在，建完 `readlink` + `diff -q` 确认指向正本。
