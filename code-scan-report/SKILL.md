@@ -128,7 +128,7 @@ python /mnt/skills/public/xlsx/scripts/recalc.py output.xlsx
 
 ```python
 import shutil
-shutil.copy("/home/claude/output.xlsx", "/mnt/user-data/outputs/xxx_scan_report.xlsx")
+shutil.copy("/home/Codex/output.xlsx", "/mnt/user-data/outputs/xxx_scan_report.xlsx")
 ```
 
 调用 `present_files` 提供下载链接。如用户同时需要 HTML 文件，参考 `references/html-artifact.md`。
