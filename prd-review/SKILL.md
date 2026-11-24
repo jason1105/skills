@@ -7,7 +7,7 @@ description: 评审《产品需求详细设计》文档（prd-detail-design 骨�
 
 本 skill 用于对一份已经写好的《产品需求详细设计》做规范性评审。评审基准有两层：
 
-1. **结构基准**：`prd-detail-design` 的章节骨架与功能点七段式（本 skill 内置其完整检查清单，评审时不需要加载该 skill，但结构定义以它为准；详见姊妹 skill `~/.hermes/skills/productivity/prd-detail-design/references/structure.md` 与 `feature-anatomy.md`，跨 agent 正本在 `~/.agents/skills/`，若存在）。
+1. **结构基准**：`prd-detail-design` 的章节骨架与功能点七段式（本 skill 内置其完整检查清单，评审时不需要加载该 skill；结构定义见姊妹 skill 仓库 `~/MyProjects/lvwei/ai/skills/prd-detail-design/references/structure.md` 与 `feature-anatomy.md`）。
 2. **写作规则基准**：skill 目录下的 `rules/PRD编写规则.md`（唯一现行规范，《PRD编写规范》已停用）。存在则以文件为准；不存在时按本 skill 内置清单执行。
 
 文档型谱系（同族 skill，评审时按需引用）：
@@ -150,3 +150,7 @@ description: 评审《产品需求详细设计》文档（prd-detail-design 骨�
 - "检查一下验收标准全不全" → 触发（按完整流程跑，结论里突出用户关注点）
 - "帮我写 PRD" → 不触发（创作类，转 prd-detail-design）
 - "PRD 应该怎么写" → 不触发（问规则，直接读规则文件回答）
+
+## 正本与改动
+
+本 skill 正本在仓库 `~/MyProjects/lvwei/ai/skills/prd-review/`（改动：仓库编辑 → `npx skills add <仓库> -g --skill prd-review` 装回 → commit/push；rules/PRD编写规则.md 随仓走）。
