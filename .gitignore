@@ -1,0 +1,11 @@
+.DS_Store
+__pycache__/
+# 外来 skill(CLI/生态安装,不归本仓管)
+/find-skills/
+/last30days/
+/majiayu000-backend-design-review/
+/orca-cli/
+/product-monster-featurelist/
+/product-monster-prd/
+/web-perf/
+/performance-optimization/
