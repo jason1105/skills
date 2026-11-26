@@ -21,3 +21,33 @@
 3. 关前发一条**证据评论**（MR iid + merge commit，或 master 上的交付物路径 + 验证结论 + 落款），再 `PUT issues/<iid> -f state_event=close`，最后 re-GET 确认 `state=closed`。**自动关单按合并通道分两种**：走 `glab mr merge`（CLI 合并通道）时，MR 描述里的 `Closes #N` **会生效、议题随合并自动关闭**（实测回读 `state=closed`；仍必须 re-GET 议题确认，别默认关键字一定生效）；本地 push 触发 post-receive 把 MR 自动翻 merged 时，`Closes #N` **不触发**（实测 push 后 MR 已 merged、issue 仍 opened，需手动 `PUT issues/<iid> -f state_event=close`）。证据评论同时是关闭理由的留痕；靠 `Closes #N` 自动关单时，note 要在**合并前**发——合并后议题即关闭，再补 note 读起来像事后记账。
 
 **后续议题正文模板**（管理员要求「工程师根据议题和文档直接开发」时的可执行标准）：标题按「标题前缀码」带前缀；正文五段——①背景（现状 + 依赖一句话）；②文档与代码引用（仓内文档路径 + 章节/行号 + 代码文件）；③实施范围（每项写「现状 → 改法」，含文件与行号锚点）；④禁止事项（不改什么、不引入什么，git 红线）；⑤验收条件（编译工具链 pin、测试数基线、禁项扫描、基线失败集对齐）+ 参考。按依赖切分：无前置的收尾议题现在可开工；接真议题把前置列成表（任务卡号 + 承载能力）并注明「前置到位后拆子议题」。建完 re-GET 比对字符数（存储层吃掉结尾换行，`desc.rstrip() == local.rstrip()` 判等）。
+
+## 议题「待规划」转可评审的规划评论
+
+
+Pattern proven on chrome-show-issue-and-mr-no #9 (refactor planning, note 746901): the team
+expectation is that planning output lands as an issue comment (留痕), NOT as a branch/commit/MR.
+
+## Steps
+
+1. Fetch the issue body first — it contains the real requirements, candidate module
+   boundaries, and design principles. `glab api "projects/<id>/issues/<iid>"` (NOT
+   `glab issue view` — nil-pointer panic). The body often already lists candidate
+   boundaries; the plan must reference them, not invent parallel ones.
+2. Survey the actual code BEFORE writing the plan:
+   - `grep -nE "^(async )?function |^const |^let " src/<file>` — function inventory with line numbers.
+   - Read the top of the file for closure state variables (IIFE `let` block) and the end for
+     lifecycle wiring (event listeners, bootstrap).
+   - Check manifest / script registration arrays for load-order constraints (new files must
+     be added there too).
+3. Write the plan to a temp file (e.g. `.issue<N>-plan.md` in repo root) with:
+   - 现状职责清单 table: domain | representative functions (line refs) | owned state | LOC estimate.
+   - Phased steps, each independently mergeable/revertible, with a dependency direction diagram.
+   - Explicit "不建议抽" (do-not-extract) items to resist over-modularization.
+   - Implementation-order recommendation and which steps gate other known issues.
+4. Publish: `glab api -X POST "projects/<id>/issues/<iid>/notes" -f "body=$(cat .issue<N>-plan.md)"`.
+   (`--input <json>` returns 400 "body is missing" on this glab build — see SKILL.md pitfalls.)
+5. Verify the note body in the response JSON (id + body prefix), then delete the temp file.
+6. Group-chat report: cite the note id, summarize the plan in 4-6 bullets, @manager for
+   review/prioritization, and flag cross-issue coupling points for parallel planners.
+

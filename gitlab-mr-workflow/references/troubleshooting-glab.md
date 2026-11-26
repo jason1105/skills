@@ -1,6 +1,6 @@
 # glab 排障与凭据回退
 
-> 从 SKILL.md 拆出，内容为实测口径原样搬运。触发：glab 报任何错（Unauthenticated / panic / 空输出 / 400 / 404 / 406 / 414 / 正文损坏），或需要不依赖 glab 的 curl 通道。
+> 从 SKILL.md 拆出，内容为实测口径原样搬运。触发：glab 报任何错（Unauthenticated / panic / 空输出 / 400 / 404 / 406 / 414 / --jq / -o / 路径编码），按表索引到处理列指向的节；正文损坏（@file 落字面量 / 反引号丢失）类见 long-body-writing.md。
 
 | Symptom | Workaround |
 |---------|------------|
@@ -25,60 +25,6 @@
 | glab api says `Unauthenticated` despite valid token | **Two independent root causes.** (a) glab's default host is `gitlab.com` (see `glab config get host`); the tsintergy token only applies per-host. Reliable fix: `export GITLAB_HOST=git.tsintergy.com:8070` before glab commands. (b) glab driven from `execute_code` (Python `subprocess`) once returned `Unauthenticated` while the identical command worked in `terminal` (2026-08-21; suspicion was macOS Keychain access). ⚠️ **NOT a standing rule — 2026-09-21 re-test on tsie-airs-backend: glab via Python `subprocess.run([...])` worked for GET / POST / PUT on issues, MR descriptions and notes, returning real JSON.** Try subprocess first (it is the cleanest channel for multi-line bodies — see "长正文写入" above); only if you actually observe `Unauthenticated` move the identical command to `terminal`, and don't re-diagnose the host either way. If you hit `Unauthenticated` from execute_code, do not re-diagnose the host — just move the command to terminal. Also: `glab api "projects/<numeric_id>"` (integer id) can succeed in terminal while path-form subpaths fail — the id form is more reliable for POST bodies. ⚠️ The RELIABILITY CAN FLIP PER PROJECT/INSTANCE-STATE: verified 2026-09-03 on chrome-show (project id 7533) the numeric-id form `glab api project/7533/issues` returned `{"error":"404 Not Found"}`, while the URL-encoded path form `projects/lvwei%2Fchrome-show-issue-and-mr-no/issues?state=opened` resolved cleanly and stayed stable through repeat reads. If one id-form returns 404/empty, don't conclude auth failure — retry the sibling path-form (and vice-versa). Taste both before debugging auth. glab config lives at `~/Library/Application Support/glab-cli/config.yml` on macOS (NOT `~/.config/glab-cli/`). ⚠️ That glab config is ABSENT on some hosts while glab still resolves to `git.tsintergy.com` and returns `Unauthenticated` for every call — when absent, don't hunt for a glab config or re-diagnose the host; use the git credential-store token fallback in the section below |
 | `curl -H "PRIVATE-TOKEN: $STORE_TOKEN"` to GitLab API alternates HTTP 200 and 401 across rapid retries (same token, no param change) | **curl + the stored token is SPUTTERING/intermittent on this instance — NOT a stable loop-friendly channel.** Verified 2026-09-03 (`git credential fill` token, len 100): a probe GET was 200, then the equivalent queries 3s apart came back 401 (body `{"message":"401 Unauthorized"}`), then a retry batch reverted to 200 — non-deterministic under repeated rapid calls. The response shape also flips (a JSON array on success vs a single error `dict` on failure — guard your `json.load` accordingly). For recurring/multi-call reads, prefer `glab api` (its own config.yml token, keychain), which stayed reliable through the same session, and reserve the curl+store-token path for the no-glab-config fallback only. Don't burn turn cycles retrying curl against an intermittent channel |
 | `glab api .../merge_requests/<iid>/diffs` → HTTP 404 | 该 13.11 无 `/diffs` 端点——看 MR 改动用 `/changes`；权威量级以 `git fetch origin <branch>` 后 `git diff --stat origin/main...origin/<branch>` 为准（`/changes` 的 rename/±数在 13.11 有显示怪癖，见 Read-only MR review 节） |
-
-## Unauthenticated glab / no glab config — git credential-store token fallback
-
-**Quicker path — `git credential fill`:** when `credential.helper=store` (this host), you can extract the token without parsing `~/.git-credentials`:
-
-```bash
-TOKEN=$(printf 'protocol=http\nhost=git.tsintergy.com:8070\n\n' | git credential fill 2>/dev/null | grep '^password=' | cut -d= -f2)
-echo "token_len=${#TOKEN}"   # verify length only — NEVER print the token
-curl -s -H "PRIVATE-TOKEN: $TOKEN" "http://git.tsintergy.com:8070/api/v4/projects/lvwei%2F<repo>/issues/18" -w "HTTP %{http_code}\n"
-```
-- Confirmed working this session (2026-08-24): `printf 'protocol=http\nhost=git.tsintergy.com:8070\n\n' | git credential fill` returns `username=lvwei@tsintergy.com` + a real 20-char `password`. Use `username=lvwei@tsintergy.com` (the oauth2 line's password is the API token; the plain-`lvwei` line's password is the LDAP login — each resolves via `credential fill` per host, so try the username that matches). `%2F` URL-encode the namespace path (`projects/lvwei%2F<repo>`), never raw `lvwei/<repo>`.
-- Yields HTTP 200/201 for issues/MRs/notes REST calls.
-
-glab's own config (`~/Library/Application Support/glab-cli/config.yml`) may not exist while glab still resolves to `git.tsintergy.com` and returns `Unauthenticated` for every api call (verified 2026-08-21). Fall back to the **git credential-helper `store` token**, which is reliable:
-
-```bash
-TOKEN=$(python3 -c "
-import re
-for line in open('/Users/<user>/.git-credentials'):
-    if 'git.tsintergy.com:8070' in line and 'oauth2' not in line:
-        m=re.match(r'https?://([^:]*):([^@]*)@', line)
-        if m: print(m.group(2)); break
-")
-```
-- `~/.git-credentials` (git `credential.helper=store`) has one line per host: `http://<user>:<password>@host:port` — the host TRAILS the `@`, so anchor any hand-rolled extraction regex on `scheme://<user>:<password>@` (as the snippet above does); a host-first pattern like `host\.com.*?:(pwd)@` never matches and reads as a false "token not found". For `git.tsintergy.com:8070` there are typically THREE entries — users `lvwei%40tsintergy.com`, `oauth2`, and `lvwei`. The **`oauth2` entry's password is the real GitLab API (pat/token) credential**; the plain-`lvwei` entry's password is the LDAP login (often NOT an API token). Try the non-oauth entry first; if it 401s, use the `oauth2` entry. With the `PRIVATE-TOKEN` header these yield HTTP 200/201 for all REST calls. Read the token inside the script; NEVER print it (verify only its length — a printed value trips the security scanner even when other vars print masked `***`). The `AUTH_TOKEN` env var on this host is a masked placeholder `***`, not a real token, and 401s; don't treat `env | grep TOKEN` as proof a real token exists.
-
-**PITFALL — `git credential fill` returns an EMPTY token when the host string doesn't match exactly.** `printf "protocol=http\nhost=git.tsintergy.com:8070\n" | git credential fill` yields the token, but the same host written as an IP (`192.168.2.207:8070`) or with a different scheme returns nothing — the store matches on the exact host:port+scheme. If the first attempt returns token length 0, don't re-diagnose auth: just retry with the exact `git.tsintergy.com:8070` host form. Also, `~/.git-credentials` on this machine may list a DIFFERENT host string (e.g. `git.tsintergy.com%3a8070` URL-encoded in some entries vs `git.tsintergy.com:8070` plain in others) — grep the file to see which exact host string is present before `credential fill`.
-
-**PITFALL — the project path is `lvwei/<repo>`, not `tsie/<repo>`.** This machine's tsie-tunnel repo is `lvwei/tsie-tunnel` (project id 7509), NOT `tsie/tsie-tunnel`. A wrong namespace in `projects/<ns>%2F<repo>` resolves to nothing (empty JSON), which looks like an auth failure. Before debugging auth, confirm the real path: `curl -s -H "PRIVATE-TOKEN: $TOKEN" "http://git.tsintergy.com:8070/api/v4/projects?search=tsie-tunnel" | python3 -c "import sys,json;[print(p['id'],p['path_with_namespace']) for p in json.load(sys.stdin)]"`.
-
-### Create an MR from scratch via curl (no glab needed)
-
-When glab auth is broken, the full lifecycle still works with curl + the credential-store token. Write the multi-line markdown description to a temp file FIRST (avoids the inline-backtick/markdown corruption class), then POST:
-
-```bash
-python3 - "$DESC" <<'PY' > /tmp/payload.json
-import json,sys
-json.dump({"source_branch":src,"target_branch":"main","title":t,"description":sys.argv[1],"remove_source_branch":False}, open('/tmp/payload.json','w'))
-PY
-curl -s -H "PRIVATE-TOKEN: $TOKEN" -H "Content-Type: application/json" -X POST \
-  -d @/tmp/payload.json \
-  "http://git.tsintergy.com:8070/api/v4/projects/lvwei%2F<repo>/merge_requests" \
-  -o /tmp/mr.json -w "HTTP %{http_code}\n"
-```
-`201` + a response carrying `iid`/`state:"opened"`/`web_url` = created; confirm via `?source_branch=<branch>&scope=all`. `state=opened` returning `[]` is a LEGIT no-MR result, not an auth failure. Keep `remove_source_branch:false` until admin confirms branch deletion (some groups require admin sign-off before cleanup).
-
-### Formalize a locally-verified-but-UNCOMMITTED final implementation (release-blocking "缺口补齐")
-
-When real-browser verification passed but the verified code was never committed/merged (lived only as local working-tree changes), formalize it safely before it blocks a release:
-1. Record the merge base (`git log -1` of the main the verified work sat on, e.g. `2bcd048`).
-2. Open a NEW branch off that base (e.g. `fix/<n>-planb-merge`) and re-apply the exact working-tree file set onto it — don't commit onto a diverged branch.
-3. Confirm the new branch's diff vs main EXACTLY matches the intended set BEFORE opening the MR: `git diff <base> <branch> --stat` should list only the expected files (e.g. background.js +7, content.js sendMessage, tests) with no extras.
-4. Run the full test suite ON the new branch (not the old checkout), confirm green, and confirm local == `origin/<branch>`.
-5. Query MRs for that source branch (`?source_branch=...&scope=all`); empty = no MR yet. Create via curl (above) with an admin-addressed description that STATES the release-blocking gap (current main is the obsolete form → publishing regresses the fix) and lists the admin decisions required before merge. Manager does NOT self-merge. glab config lives at `~/Library/Application Support/glab-cli/config.yml` on macOS (NOT `~/.config/glab-cli/`) |
 | `--jq` flag unknown (`Unknown flag: --jq`) | This glab build lacks `--jq` on api subcommands in some contexts — pipe JSON to a /tmp file and parse with python (NOT `glab api ... \\| python3 -c` directly — that trips the pipe-to-interpreter security scan; write to file first) |
 | `Unknown shorthand flag: 'o' in -o` on `glab api` | `glab api` does NOT accept `-o`/`--output` and has no `-w "HTTP %{http_code}"` (both are curl flags). Capture the body with shell `>` to a file: `glab api "..." > /tmp/resp.json 2>/tmp/err.txt; echo "exit=$?"` then parse the file with python. Verified 2026-09-03 on chrome-show MR create (`--method POST .../merge_requests --field ...`). The curl-only "Create an MR via curl" snippet below (which uses `-o`/`-w`) is correct AS WRITTEN ONLY under curl, not glab |
 | `--input-file` unknown / `--raw-field "body=@file"` writes the literal `@path` string | `@file` expansion is inconsistent across glab 1.100.0 endpoints: `-F "body=@file"` works for MR notes (uppercase), but the ISSUE notes endpoint with `-f "body=@/tmp/note.md"` posted the LITERAL string `@/tmp/note.md` as the body (verified 2026-08-21, issue #17 note 748516 — had to DELETE and repost). Most reliable method for issue notes: `body=$(cat note.md)` then `glab api .../notes -f body="$body"` (verified 2026-08-21, note 748517 landed with full markdown). ALWAYS re-read the created note's `body` after posting; if it's a literal `@path`, DELETE the note and repost |

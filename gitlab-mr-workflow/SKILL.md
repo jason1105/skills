@@ -27,16 +27,17 @@ metadata:
 |---|---|---|
 | 建议题 / 开 MR 前定标题 | `title-prefix-code.md` | 类别×状态合法组合表、MR type 表、lint 用法 |
 | 写多行/含反引号的正文 | `long-body-writing.md` | argv 直传代码、`@file`/`--input` 坑、字段名 |
-| glab 报任何错 / 无 glab 配置 | `troubleshooting-glab.md` | 症状速查表、凭据回退、curl 建 MR |
+| glab 报任何错 | `troubleshooting-glab.md` | 症状速查表（按报错找行，处理列指向对应节） |
+| Unauthenticated / 无 glab 配置 / 需免 glab 的 curl 建 MR 通道 | `auth-fallback.md` | credential fill 取 token、curl 建 MR |
 | 合并前核验 / 堆叠 MR / 批量合并 / 「提交推送但不合并」「继续」类指令 | `pre-merge-checks.md` | merge-tree 预检、406 分诊、堆叠与推进纪律 |
 | 合并后验证 / `glab mr merge` 报错 / push 与 MR 状态联动 / 误合并撤销 | `merge-verification.md` | API 回读、空 diff 与 merged 翻转机制、revert 三选 |
 | merge-tree 干净但合并后挂 / 长期分支合 advanced main / 改名撞在途 MR | `advanced-merge-patterns.md` | 语义冲突、文档血统分叉、冲突块工具用法 |
 | 处理评审意见 / 只读评审 / 行内评论 / 多轮改动与方向变更同步 | `review-response-loop.md` | 九步闭环、`+0 -0` 假象、四处记录同步 |
 | 合并后清理本地分支与 worktree | `post-merge-cleanup.md` | worktree 先于分支、`-d` vs `-D`、证据纪律 |
-| 梳理现有议题 / 关闭已完成议题 / 建后续可开发议题 / 沉淀结论进手册 | `issue-lifecycle.md` | 全量梳理产出形态、关单证据三形态、议题模板 |
+| 梳理现有议题 / 关闭已完成议题 / 建后续可开发议题 / 沉淀结论进手册 / 「待规划」议题出规划评论 | `issue-lifecycle.md` | 全量梳理产出形态、关单证据三形态、议题模板、规划评论流程 |
 | 仓库迁移 / 改名 / 换 group | `repo-migration.md` | 传输 vs 新建、MR 目标分支选择、旧 MR 只关不合 |
 | 为独立议题开分支 / 镜像仓 PR 基线核对 / 未提交实现落成 MR | `branch-baseline.md` | 不从冻结分支开、PR 夹带外来提交修法 |
-| 写 `.gitlab-ci.yml` / Pages / 定时流水线 | `ci-pages-quirks.md` | 13.11 无 `publish:`、两 job Pages 模式 |
+| 写 `.gitlab-ci.yml` / Pages / 定时流水线 / CI 定时回写仓状态 | `ci-pages-quirks.md` | 13.11 无 `publish:`、两 job Pages 模式、[skip ci] 陷阱 |
 | 建新仓 / 首次在新仓提交 | `repo-init-and-identity.md` | `glab repo create` 路径、作者邮箱核对、锁文件 |
 
 ## Prerequisites
@@ -102,7 +103,7 @@ git fetch origin && git log origin/main --oneline -5                # 本地确�
 
 ## Reference（迁移前既有的项目专属 reference）
 
-以下 6 个是历史项目（chrome-show 等）沉淀的专属流程，触发场景见表内首列，一般任务不加载：`chrome-show-mr-collab.md`（群聊 MR-first 协作流程）、`planning-comment-workflow.md`（议题「待规划」转规划评论）、`gitlab-ci-writeback.md`（定时 CI 回写仓状态）、`parallel-impl-shared-checkout.md`（多 agent 并行 MR 共用检出）、`chrome-show-content-harness-quirks.md`（FakeNode 测试 harness 坑）、`regression-test-gate-handoff.md`（门禁条件通过+测试缺口补齐）、`pr-base-divergence-pollution.md`（GitHub 镜像 PR 基线分叉案例）、`badge-css-split-refactor-pattern.md`（大块逐字搬移重构模式）。
+以下 5 个是历史项目（chrome-show 等）沉淀的专属流程，仅该项目任务触发：`chrome-show-mr-collab.md`（群聊 MR-first 协作流程）、`parallel-impl-shared-checkout.md`（多 agent 并行 MR 共用检出）、`chrome-show-content-harness-quirks.md`（FakeNode 测试 harness 坑）、`regression-test-gate-handoff.md`（门禁条件通过+测试缺口补齐）、`badge-css-split-refactor-pattern.md`（大块逐字搬移重构模式）。
 
 - `scripts/resolve_merge_conflicts.py` — 列出合并中全部冲突块（`--list`）并按 JSON 计划逐块解决（`main`/`head`/`both`/`custom`，尾部可 `append`）；计划漏块会响亮报错。配套流程（scope-parity diff、build、push、MR 刷新）见 `references/advanced-merge-patterns.md`。
 - `scripts/title-lint.py` — 校验议题 / MR 标题前缀码，合法组合表解析自 `references/title-prefix-code.md`，改表即改规则。
