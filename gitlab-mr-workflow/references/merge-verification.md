@@ -1,6 +1,6 @@
 # MR 合并与合并后验证
 
-> 从 SKILL.md 拆出，内容为实测口径原样搬运。触发：执行合并后验证落地、`glab mr merge` 报错、引用 MR 号前核验其存在、detached worktree 复验、误合并要撤销。
+> 从 SKILL.md 拆出，内容为实测口径原样搬运。触发：合并后验证落地、`glab mr merge` 报错、引用 MR 号前核验其存在、push 与 MR 状态联动（空 diff / merged 翻转）、detached worktree 复验、误合并要撤销。
 
 ## Merging an MR — always verify
 
@@ -64,3 +64,9 @@ Undoing a merge that landed on the target by mistake (admin: 「被我不小心�
 - **`git revert -m 1 <merge_commit>` on the target branch** — undoes only that MR's changes, preserves every commit/MR-state that landed after it, keeps history intact. `git log --first-parent` shows what landed on top (another already-merged MR stays merged). The revert is a normal forward commit, so other open MRs cut before the merge still need a rebase check (their merge-base vs the new head).
 - **`git reset --hard <pre-merge> + force-push`** — wipes the merge AND everything merged after it, rewrites history, and leaves already-merged MR records dangling. Only viable when literally nothing else landed on top.
 - **If the merged content was planned work that merely went in early** (its review passes), keep it and rebase the dependent MRs instead — un-merging then re-merging the same content is churn. Present all three options (revert / reset / keep+rebase) with a recommendation to admin; never self-decide a history rewrite, and never let a stale `has_conflicts=false` on the remaining MRs mask the rebase work.
+
+## push 与 MR 状态联动（空 diff / merged 翻转机制）
+
+**坑（2026-09-12 实测，MR !1 llm-monitor）：push 分支先于 commit → MR 空 diff。** 若分支在改动 commit 之前就 push 过（如中途被审批打断），MR 建出来 diff 为空；补 commit 再 push 同名分支，MR 自动更新到新 sha（GET `/merge_requests/<iid>` 的 sha 变化即确认），无需重建 MR。另外 commit+push+建 MR 不要串成一条长命令——审批闸会拦整条链，拆成单步逐个执行。
+
+**合并检测只在 push 时对 open 状态的 MR 生效（2026-09-12 实测，MR !2/!4 llm-monitor）**：这台 GitLab 13.11 标记 merged 的唯一途径是 push master 时的 post-receive 自动检测（本实例 merge API 当时全 404/405；⚠️ 2026-10-19 复测部分仓可用，见症状表 `glab mr merge 475` 行）。因此 **push master 前 MR 必须处于 open 状态**——提前 close（或 push 发生在 close 之后）会让 MR 永远停在 closed，事后 reopen + 再 push（no-op 不触发 post-receive）也救不回来，只能 close + 评论注明「以 master 为准」。顺序铁律：确认 state=merged → 最后才清理分支（⛔ 本段「本地 merge + push main」为旧通道，已被红线禁止——post-receive 机制仅解释存量 MR 的状态；现行通道=`glab mr merge --yes -R`，见症状表 merge 404 行）。同因果链的坑：**不要照搬上一个"坏 MR"的 close 流程**（MR !4 因照搬 !2 的 close-先于-push 流程而丢了 merged 状态）。

@@ -1,6 +1,6 @@
 # 评审意见处理闭环
 
-> 从 SKILL.md 拆出，内容为实测口径原样搬运。触发：处理评审意见、只读评审 MR、写行内评论。
+> 从 SKILL.md 拆出，内容为实测口径原样搬运。触发：处理评审意见、只读评审 MR、行内评论，及多轮改动/方向被否决后的记录同步。
 
 ## Responding to review comments on your own MR（评审意见处理闭环）
 
@@ -36,3 +36,9 @@ glab mr note create <mr_iid> --file <path> --line <new_line>   # or --old-line
 glab mr note create <mr_iid> --reply <discussion_id> -m "..."
 ```
 Verify the note landed by fetching the MR notes via API (note IDs come back in the response).
+
+## 多轮改动与方向变更的记录同步
+
+**多轮改动的分支卫生**：同一条分支服务多个议题时，MR 标题/描述要随最新 push 更新（`PUT merge_requests/<iid>`），否则 MR 描述与实际 diff 脱节。描述里的验证勾选清单同样随进度维护：完成一项就 PUT 勾上并附证据指针（目录+日期），别留「执行中」字样过期；发现未勾项先核对既有证据目录（常是已做完忘了更新描述）——补勾+评论收口即可，不查证据别急着重做。
+
+**方向被用户否决后必须同步「四处记录」（2026-09-13 用户抓到的真实疏漏）**：当讨论中修复方向改变（实测：先按「降级 thinking」写了 issue 方向 → 用户否决「能力不能阉割」→ 实现改成「回填」），只改实现不够——**issue 正文 / 分支名 / MR 标题与描述 / 仓内文档（处置表、手册）**都要一起改，否则用户读到旧文字会合理质疑「你的修复跟我的要求一致吗」。做法：改分支名（`git branch -m` + push 新分支）、关掉旧 MR 并重开（`glab mr close <iid>` → `glab mr create --source-branch <new> ...`）、`PUT issues/<iid>` 重写描述，最后跑一条自检（`grep -c "<旧表述>"` 应为 0）再回报。

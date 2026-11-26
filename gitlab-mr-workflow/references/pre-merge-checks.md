@@ -1,6 +1,6 @@
 # 合并前预检
 
-> 从 SKILL.md 拆出，内容为实测口径原样搬运。触发：执行合并前的可合并性核验、顺序合并遇 406、批量合并摸底与排序。
+> 从 SKILL.md 拆出，内容为实测口径原样搬运。触发：合并前的可合并性核验、顺序合并遇 406、批量合并摸底、堆叠 MR，及「提交推送但不合并」「继续」类推进指令。
 
 ## Pre-merge pre-check (manager-executed merges)
 
@@ -42,3 +42,11 @@ glab api -X PUT "projects/<id>/merge_requests/<iid>/merge"   # retry; then verif
 2. **排序**：无冲突且非 Draft 的先合；Draft 摘前缀属合并授权的一部分；真冲突的排最后——在源分支 `git merge origin/main` 解冲突（docs 冲突按块分流见「归位/改名撞在途 MR」节）、push 后再合。
 3. **逐条执行 + 逐条复核**：每合一条 API 复核 state=merged＋merged_at 再动下一条——合完 A 后 B 的冲突状态会重算（406／`checking` 语义见 Sequential merges 节）。
 4. **关单核验**：描述用 `Refs #N`（非 Closes）的 MR 合并不自动关议题——re-GET 议题 state，没关就发证据 note 再 `PUT state_event=close`。
+
+## 堆叠 MR 与推进指令纪律
+
+**堆叠 MR（前置 MR 还开着、后续改动不能等时）**：从前置 MR 的源分支开新分支，MR 的 `target_branch` 指向该源分支而非默认分支——diff 只含后续改动，评审不夹带前置内容；描述写明「依赖：需先合并 !<base>」。开 MR 前用 `git diff --stat <base-branch>...HEAD` 自证只含自己的改动。合并顺序：先合基线 MR；GitLab 13.11 不会自动 retarget，需 `PUT .../merge_requests/<iid> -f target_branch=master` 把堆叠 MR 重指到默认分支后再合并。
+
+**用户明确要求“提交、推送、更新评论但不要合并”时**：先用 `git status --short` 和 `git diff --name-only` 列出范围，只 `git add <目标文件>`，不要用 `git add -A`，以保留未跟踪文件原样；提交后核对 `git show --stat` 与工作树，再 `git push`。随后用 `git ls-remote origin <branch>` 和 GitLab MR GET 同时确认远端 SHA 与 MR `sha` 一致、`state=opened`、`merged_at=null`、`has_conflicts` 状态明确。长评论写入文件并通过可靠的 argv/`-F body=@file` 通道发布，立即回读 note，比较正文（允许存储层去掉末尾换行）并确认署名存在；只有用户明确授权合并时才进入合并流程。
+
+**收到“继续”后不要把可验证事项升级成阻塞**：若修改口径已经确定，直接按既定范围完成验证、提交、推送和留痕；尚未确定的细节应标为风险并继续完成不依赖它的步骤，除非它确实改变写入内容或安全边界。这样可避免把调度判断误报成系统停止，也避免任务停在半完成状态。
