@@ -1,0 +1,53 @@
+# 议题收尾与后续议题
+
+> 从 SKILL.md 拆出，内容为实测口径原样搬运。触发：admin 要求梳理现有议题状态、关闭已完成议题、为后续建可直接开发的议题、把调查结论沉淀进手册。
+
+**全量梳理（admin 要求「梳理现有议题状态」时的产出形态）**：盘点用 `glab api "projects/<id>/issues?state=opened&per_page=100"`（三段拼接吃 page 参数，直接单串带查询参数）；逐条判定前先读 body+notes（列表 body 截断，非正文）。产出=逐条表（#｜标题摘要｜现状｜建议=关闭/派工/留），现状必须指向硬证据而非议题自述：**「[施工]/[缺陷] 类完成没关」最常见的原因是 MR 描述未写 `Closes #N` 且 GitLab 13.11 API 合并不自动关单——用 `git log --oneline --grep='<iid>'` 在仓里反查 MR 号与 merge SHA，API 核实 `state=merged` 即可建议关闭**；「[记录] 类」判内容是否已沉淀进仓内文档（沉淀完即建议关闭留痕）；「疑似过期」类（如 mac 平台问题与平台定性冲突）标注疑点待 admin 裁决，不自行关闭。表格末尾给分类小计（关/留/派工）+拍板点，批量动作等 admin 逐类拍板后执行。
+
+**留痕评论只写已发生的事实，计划与待办单列**——「文档里已有裁决」「方案文档已写好」不等于「事项已完成」，把计划写成完成态就是伪造记录，用户会当场打回。现状类评论固定三段：已发生（附证据指针）/ 未发生待办（编号列出）/ 待决策项去向。
+
+**调查结论沉淀进手册（「把现象和修法沉淀到运维手册」类指令）**：
+
+1. 取全量证据再动笔：单条 GET 议题（正文字段是 `description`，不是 `body`）+ **全部 notes**（`.../notes?per_page=100&sort=asc`）+ 仓内 verification/harness 的 README——定案结论几乎总在最后的 note 里，议题正文往往还是立案时的旧口径。
+2. 定位手册里承载**旧口径**的所有位置：用症状关键词 grep 全 docs/，把每处「待定位/治标/见 #N 跟踪」找全——只改主小节、不改引用处，手册会自相矛盾（排障节、checklist、相邻节注常各留一份旧话）。
+3. 沉淀内容固定形状：现象特征（含判别性细节，如截断位置浮动带）→ 根因（哪一跳、为什么静默）→ 修法（可直接抄的配置块）→ 为什么临时手段只治标 → 现场核查线索 → 复现 harness 的仓内路径。
+4. MR 描述写 `Closes #N` 走 CLI 合并自动关单（见下）；note 在合并前发。
+5. tsie-tunnel 双 remote 惯例：origin（开发仓）合并后向只读镜像 tsie 快进 `git push tsie origin/master:master`（只推分支不带 tag），回读两仓 master 一致才算收尾。
+
+**关闭已完成议题**（管理员「检查议题，完成的可关闭，并为后续提议题」时的固定顺序）：
+
+1. 先 `glab api "projects/<id>/issues?per_page=100&scope=all"` 全量盘点——已完成但忘关的议题会留在 opened，只数 opened 会漏。
+2. 每个待关议题先取证据，证据形态按交付类型二选一：代码/修复类看**关联 MR `state=merged` 且 `merged_at` 非空**；文档/基线类看**交付物已在 origin/master**（`git cat-file -e origin/master:<路径>`，或归档目录在档）——文档交付常无独立 MR 或 MR 早已合并，文件在档即证据。第三种形态：**议题跟踪的使命是「完成评估/实现并交评审」而实现停在 feature 分支评审中**——按使命完成关闭（note 写明分支名、评审 MR 号与「评审打回可重开」），不因「代码未并 master」机械保留；反之，议题声明「保持 open 的主跟踪件」（如实施计划跟踪）无论多旧都不关。多步骤议题逐步验证：每步各自的 MR `state=merged` 加外部动作落地证据（本机软链已建、对侧仓 commit 在档、项目 `archived:true`）逐项回读，总控 MR 合并不代表分步全完成。**标题与实际不符时不关**：议题声明的修订可能从未落盘（目标文件仍停在旧版本或「待评审」态）——按现行文件版本判定，不按议题自述；议题正文里的旧拍板可能已被后续裁决取代，回填前先对照现行基线口径（写清谁被谁取代），别照抄旧结论。同时看议题自身 `state`/`closed_at`：已被提前关闭就跳过 close 调用，但证据评论照发——留痕与关单是两件事。
+3. 关前发一条**证据评论**（MR iid + merge commit，或 master 上的交付物路径 + 验证结论 + 落款），再 `PUT issues/<iid> -f state_event=close`，最后 re-GET 确认 `state=closed`。**自动关单按合并通道分两种**：走 `glab mr merge`（CLI 合并通道）时，MR 描述里的 `Closes #N` **会生效、议题随合并自动关闭**（实测回读 `state=closed`；仍必须 re-GET 议题确认，别默认关键字一定生效）；本地 push 触发 post-receive 把 MR 自动翻 merged 时，`Closes #N` **不触发**（实测 push 后 MR 已 merged、issue 仍 opened，需手动 `PUT issues/<iid> -f state_event=close`）。证据评论同时是关闭理由的留痕；靠 `Closes #N` 自动关单时，note 要在**合并前**发——合并后议题即关闭，再补 note 读起来像事后记账。
+
+**后续议题正文模板**（管理员要求「工程师根据议题和文档直接开发」时的可执行标准）：标题按「标题前缀码」带前缀；正文五段——①背景（现状 + 依赖一句话）；②文档与代码引用（仓内文档路径 + 章节/行号 + 代码文件）；③实施范围（每项写「现状 → 改法」，含文件与行号锚点）；④禁止事项（不改什么、不引入什么，git 红线）；⑤验收条件（编译工具链 pin、测试数基线、禁项扫描、基线失败集对齐）+ 参考。按依赖切分：无前置的收尾议题现在可开工；接真议题把前置列成表（任务卡号 + 承载能力）并注明「前置到位后拆子议题」。建完 re-GET 比对字符数（存储层吃掉结尾换行，`desc.rstrip() == local.rstrip()` 判等）。
+
+## 议题「待规划」转可评审的规划评论
+
+
+Pattern proven on chrome-show-issue-and-mr-no #9 (refactor planning, note 746901): the team
+expectation is that planning output lands as an issue comment (留痕), NOT as a branch/commit/MR.
+
+## Steps
+
+1. Fetch the issue body first — it contains the real requirements, candidate module
+   boundaries, and design principles. `glab api "projects/<id>/issues/<iid>"` (NOT
+   `glab issue view` — nil-pointer panic). The body often already lists candidate
+   boundaries; the plan must reference them, not invent parallel ones.
+2. Survey the actual code BEFORE writing the plan:
+   - `grep -nE "^(async )?function |^const |^let " src/<file>` — function inventory with line numbers.
+   - Read the top of the file for closure state variables (IIFE `let` block) and the end for
+     lifecycle wiring (event listeners, bootstrap).
+   - Check manifest / script registration arrays for load-order constraints (new files must
+     be added there too).
+3. Write the plan to a temp file (e.g. `.issue<N>-plan.md` in repo root) with:
+   - 现状职责清单 table: domain | representative functions (line refs) | owned state | LOC estimate.
+   - Phased steps, each independently mergeable/revertible, with a dependency direction diagram.
+   - Explicit "不建议抽" (do-not-extract) items to resist over-modularization.
+   - Implementation-order recommendation and which steps gate other known issues.
+4. Publish: `glab api -X POST "projects/<id>/issues/<iid>/notes" -f "body=$(cat .issue<N>-plan.md)"`.
+   (`--input <json>` returns 400 "body is missing" on this glab build — see SKILL.md pitfalls.)
+5. Verify the note body in the response JSON (id + body prefix), then delete the temp file.
+6. Group-chat report: cite the note id, summarize the plan in 4-6 bullets, @manager for
+   review/prioritization, and flag cross-issue coupling points for parallel planners.
+
