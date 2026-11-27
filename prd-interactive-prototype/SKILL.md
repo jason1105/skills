@@ -1,6 +1,6 @@
 ---
 name: prd-interactive-prototype
-version: "2.0.0"
+version: "2.0.1"
 author: lvwei
 license: MIT
 description: Use when 从详设/PRD 生成需求卡片 MD 与带双向溯源的自包含 HTML 原型，或迭代已有三件套时。
@@ -43,7 +43,7 @@ metadata:
 
 禁止另起 `## REQ-xxx` 二级标题承载卡正文。
 
-卡头字段表：适用角色／模块与来源章节／优先级与分类／所属业务目标（有目标体系时）／**所属基线与版本**／原型位置深链（`01-{系统}_可交互原型.html#story=REQ-xxx`）。
+默认三件同名前缀同目录；原型位置深链写 `{同名前缀}.html#story=REQ-xxx`（全仓唯一例外时才是 `01-{系统}_可交互原型.html`）。卡头字段表：适用角色／模块与来源章节／优先级与分类／所属业务目标（有目标体系时）／**所属基线与版本**／原型位置深链。
 
 正文四节固定（与抽屉卡是**同一数据的两个投影**，字段映射见 B2）：
 
@@ -77,7 +77,7 @@ metadata:
 
 ### B2 数据模型（唯一权威 schema，全文唯一出处）
 
-`window.STORIES` 数组，每条需求一个对象。**字段以本表为准，其余各节只引用不复述**：
+`window.STORIES` 数组，每条需求一个对象；**必须是纯 JSON 字面量**（禁尾逗号/注释/单引号），`window.STORIES = [` 起始、`];` 独占一行（lint 依赖此排版提取）。**字段以本表为准，其余各节只引用不复述**：
 
 | 字段 | 类型 | 渲染到 |
 | --- | --- | --- |
@@ -92,7 +92,7 @@ metadata:
 | arch? | str | 架构承接行（有架构件时，见 B6） |
 
 - **两个投影的映射**：MD【1】＝抽屉【1】＝core+points；MD【3】＝抽屉【3.功能描述】＝interact；MD【2】＝抽屉【4】＝acs；MD【4】＝conf；userStory 只在抽屉
-- `acs[].id`＝story.id＋`-ACn`（§2）；`acs[].demo`＝`{how:'live'|'note'|'none', path, view?, tab?, fn?, act?, fault?, pre?}`
+- `acs[].id`＝story.id＋`-ACn`（§2）；`acs[].demo`＝`{how:'live'|'note'|'none', path, view?, tab?, fn?, act?, fault?, pre?, note?}`——how=note 时 `note` 必填（注记元素定位：裸元素 id 或 `data-note=key`），供 G2 断言注记存在且非空
 - **target 必填 view＋(fn|act) 二选一**，选填 tab、pre：fn＝演示函数名（FN_REGISTRY）；act＝**裸元素 id（不带 #）**；pre＝前置态（定位前需选中的记录/tab/角色）
 - JSON 样例（新原型照此结构）：
 
@@ -115,7 +115,7 @@ metadata:
 
 | 路径 | 抽屉 | storyQuery/chip | storyOpen | modal |
 | --- | --- | --- | --- | --- |
-| 卡片▶→页面 locateFromCard | 保持开 | 不动 | 不变 | 先关（formDirty 弹确认） |
+| 卡片▶→页面 locateFromCard | 保持开（已开时不动查询/筛选；抽屉经深链/首次打开则走重置） | 不动 | 不变 | 先关（formDirty 弹确认） |
 | 页面徽标→抽屉 | 开 | 清空、回「全部」 | ＝该卡 | — |
 | AC「演示▶」→页面 locateFromAC | 保持开 | 清空、回「全部」 | ＝该卡 | 先关（同上） |
 
@@ -162,16 +162,16 @@ metadata:
 
 **跑 `scripts/lint-prototype.py <原型.html> [卡片.md]` 全绿 ＋ 浏览器断言清单全绿，才交付**。一次会话内跑完，不留给用户当验收员。
 
-**lint（静态，脚本强制）**：① id 唯一（含模板串内动态 id）② demo.fn ∈ FN_REGISTRY 且 dry-run 无异常 ③ demo.fault ∈ 故障档 options ④ ac.id 以父 story.id 开头 ⑤ 零外链 ⑥ ∀story 全文件存在徽标引用（浏览器侧再验 view 级）⑦ 双源对账（传入卡片 MD 时）：REQ 标题集合、AC id 集合、条数与 STORIES 完全相等
+**lint（静态，脚本强制）**：① 静态 id 唯一＋动态 id 表达式唯一（同表达式多模板给 ⚠ 提示人工确认不同屏）② demo.fn ∈ FN_REGISTRY 且 dry-run 无语法错误 ③ demo.fault ∈ 故障档 options ④ ac.id 以父 story.id 开头且 n 连续 ⑤ 零外链（含无引号属性/srcset/url()/@import/fetch/meta refresh）⑥ 徽标载体（剔除 STORIES 块后按 data-req/reqtag/locateFromCard 三类匹配，零命中报红）⑦ 双源对账（set 相等＋条数相等＋无重复＋`-AC\d+` 全位数＋全角空格卡头兼容）⑧ schema 校验（必填字段/target view+fn|act/acs 非空/demo.how 合法/live 有 fn|act/note 有 note 字段）。G3 浏览器侧逐 story 切 target.view 后断言 `[data-req=id]` 元素数≥1
 
 **浏览器断言 checklist**：
 - **G1 定位即展示四连**：逐卡 locateFromCard，含最不利三状态（fault=success／空态对象／过滤态）
-- **G2 AC 级执行**：逐条 live AC 点「演示▶」断言无异常＋可见副作用；note AC 断言 path 指向的注记元素存在且非空——堵「注册了跑不通」「note 没写也过关」
+- **G2 AC 级执行**：逐条 live AC 点「演示▶」断言无异常＋可见副作用；note AC 断言 `demo.note` 指向的注记元素存在且 `textContent` 非空——堵「注册了跑不通」「note 没写也过关」
 - **G3 反向徽标**：逐个点页面 reqtag（含嵌在可点击行/Tab 内的）断言五连；带活动搜索词/chip 时断言过滤被清、目标可见
 - **G4 剧情副作用**：上传后版本+1、坏文件不污染数据、reset 可恢复、故障档按钮禁用态、角色 chip 数≥详设角色表
 - **G5 标注开关**：关→页面徽标全隐、抽屉内卡片不受影响
 
-**验证脚本陷阱**（附录）：`dispatchEvent(new Event('change'))` 默认不冒泡，要传 `{bubbles:true}`；toast 断言收集全队列取末条（3.2s 自动移除）；长 JS 字符串拆多条短 js() 调用，防拼串语法错。
+**浏览器断言脚本陷阱**（G1-G5 执行时注意）：`dispatchEvent(new Event('change'))` 默认不冒泡，要传 `{bubbles:true}`；toast 断言收集全队列取末条（3.2s 自动移除）；长 JS 字符串拆多条短 js() 调用，防拼串语法错。
 
 ## D. 迭代与运维
 
