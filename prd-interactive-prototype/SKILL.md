@@ -1,6 +1,6 @@
 ---
 name: prd-interactive-prototype
-version: "2.0.1"
+version: "2.0.2"
 author: lvwei
 license: MIT
 description: Use when 从详设/PRD 生成需求卡片 MD 与带双向溯源的自包含 HTML 原型，或迭代已有三件套时。

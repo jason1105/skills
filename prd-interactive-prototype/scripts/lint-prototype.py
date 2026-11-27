@@ -46,10 +46,23 @@ def main():
 
     # FN_REGISTRY 提取(兼容简写/引号键/箭头函数/任意缩进)
     reg = re.search(r"const FN_REGISTRY\s*=\s*\{(.*?)\n\};", t, re.S)
-    reg_fns = set(re.findall(r"^\s*['\"]?([\w-]+)['\"]?\s*\(", reg.group(1), re.M)) | set(re.findall(r"^\s*['\"]([\w-]+)['\"]\s*:", reg.group(1), re.M)) if reg else set()
+    reg_fns = set()
+    if reg:
+        depth, cur = 1, ""   # 括号深度提取: 只收 depth==1 行首的键(简写 name( / 引号键 'name': / name:)
+        for line in reg.group(1).splitlines():
+            stripped = line.strip()
+            if depth == 1 and stripped and not stripped.startswith("//"):
+                km = re.match(r"['\"]?([\w-]+)['\"]?\s*(?:\(|\s*:\s*(?:function|\(|async))", stripped)
+                if km: cur = km.group(1)
+            for ch in line:
+                if ch in "{([": depth += 1
+                elif ch in "})]": depth -= 1
+            if cur and depth == 1:
+                reg_fns.add(cur); cur = ""
 
     # 故障档
-    faults = set(re.findall(r'<option value="([\w-]+)"', t))
+    fsel = re.search(r'<select[^>]*id="fault"[^>]*>(.*?)</select>', t, re.S)
+    faults = set(re.findall(r'<option value="([\w-]+)"', fsel.group(1))) if fsel else set()
 
     # ② demo.fn 存在 + dry-run(node 真执行)
     all_dms, all_acs = [], []
@@ -60,7 +73,7 @@ def main():
     dead = {f for f in fns_used if f not in reg_fns}
     if dead: red += fail(msgs, "②", f"demo.fn 死键: {sorted(dead)}")
     else:
-        # dry-run: node 里 stub 浏览器环境后逐个调用, 收集异常
+        # dry-run: node 里逐键解析函数体(简写键), 收集 SyntaxError; 子进程崩溃本身=红
         dry_err = []
         if which("node") and reg:
             probe = """
@@ -70,27 +83,29 @@ global.window={addEventListener(){},location:{hash:''}};
 global.localStorage={getItem:()=>null,setItem(){},removeItem(){}};
 global.history={replaceState(){}};
 global.confirm=()=>true;global.setTimeout=(f)=>0;global.requestAnimationFrame=(f)=>0;
-const src=require('/dev/stdin');
 """
             with tempfile.TemporaryDirectory() as td:
-                body = t[t.find(reg.start() and reg.group(0)):]
-                # 提取整个 <script> 主体做 dry-run 会执行 UI 逻辑, 太重; 只把 FN_REGISTRY + 依赖闭包 stub 掉
-                # 轻量法: new Function 解析每个函数体语法 + 调用抛 ReferenceError(依赖全局)不算失败, 只报 SyntaxError/TypeError
-                js_probe = (probe.replace("const src=require('/dev/stdin');","")
+                # 轻量法: 每键函数体包成函数表达式做语法解析, 只报 SyntaxError(引用错误由浏览器 G2 兜)
+                js_probe = (probe
                     + "\nconst FN={" + reg.group(1) + "};\n"
                     + "const out=[];for(const k of Object.keys(FN)){try{const src=FN[k].toString();new Function('const o={'+k+':('+src.replace(/^\\s*\\w+\\s*/, 'function ')+')};return true')();}catch(e){if(e instanceof SyntaxError)out.push(k+':'+e.message)}}"
                     + "console.log(JSON.stringify(out));")
                 pf = os.path.join(td, "dry.js")
                 open(pf, "w").write(js_probe)
                 r = subprocess.run(["node", pf], capture_output=True, text=True, timeout=30)
+                last = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
                 try:
-                    errs = json.loads(r.stdout.strip().splitlines()[-1])
+                    errs = json.loads(last)
+                    if not isinstance(errs, list): raise ValueError
                 except Exception:
-                    errs = []
-                if errs:
-                    red += fail(msgs, "②", f"demo.fn dry-run 语法错误: {errs[:3]}")
-                else:
-                    ok(msgs, "②", f"demo.fn 全部存在({len(reg_fns)})且 dry-run 无语法错误")
+                    # 探针自身崩溃(如任一函数体有 SyntaxError 导致整体解析失败) = 红, 不吞
+                    red += fail(msgs, "②", f"dry-run 探针异常(rc={r.returncode}): {(r.stderr or last)[:100]}")
+                    errs = None
+                if errs is not None:
+                    if errs:
+                        red += fail(msgs, "②", f"demo.fn dry-run 语法错误: {errs[:3]}")
+                    else:
+                        ok(msgs, "②", f"demo.fn 全部存在({len(reg_fns)})且 dry-run 无语法错误")
         else:
             ok(msgs, "②", f"demo.fn 全部存在({len(reg_fns)}); node 缺失跳过 dry-run")
 
@@ -101,8 +116,13 @@ const src=require('/dev/stdin');
 
     # ④ ac.id 前缀 + n 连续
     broken = [(s["id"], a["id"]) for s, a in all_acs if not str(a.get("id","")).startswith(s["id"])]
+    gaps = []
+    for s in stories:
+        nums = sorted(int(m.group(1)) for a in s.get("acs", []) if (m := re.match(r".*-AC(\d+)$", str(a.get("id","")))))
+        if nums != list(range(1, len(nums)+1)): gaps.append(s["id"])
     if broken: red += fail(msgs, "④", f"AC 前缀断裂 {len(broken)}/{len(all_acs)}, 例 {broken[:2]}")
-    else: ok(msgs, "④", f"ac.id 以父 story.id 开头({len(all_acs)} 条)")
+    elif gaps: red += fail(msgs, "④", f"AC 序号不连续(须 1..n): {gaps[:3]}")
+    else: ok(msgs, "④", f"ac.id 前缀+序号连续({len(all_acs)} 条)")
 
     # ⑤ 零外链(引号可选 + url()/fetch/meta refresh/@import)
     ext = re.findall(r'(?:src|href|srcset)\s*=\s*["\']?(?:https?:)?//[^"\'\s>]+', t)
@@ -137,7 +157,7 @@ const src=require('/dev/stdin');
         if len(md_ac_l) != len(md_ac): probs.append(f"MD AC 有重复({len(md_ac_l)} 行/{len(md_ac)} 个)")
         h2req = re.findall(r"^## (REQ-[\w.-]+)", md, re.M)
         if h2req: probs.append(f"MD 标题层级违规(## REQ 二级): {h2req[:3]}")
-        ver_titles = re.findall(r"^#### 【1\. 核心口径（v[\d.]+ 现行）】", md, re.M)
+        ver_titles = re.findall(r"^#### 【1[.、]?\s*核心口径[^】]*v\d[^】]*】", md, re.M)
         if ver_titles: probs.append(f"MD 节标题带版本号({len(ver_titles)} 处, 版本进字段表)")
         if probs: red += fail(msgs, "⑦", "; ".join(probs))
         else: ok(msgs, "⑦", f"卡片MD↔STORIES 一致(REQ {len(md_req)}/AC {len(md_ac)}, 无重复)")
@@ -146,7 +166,8 @@ const src=require('/dev/stdin');
 
     # ⑧ schema 校验
     sp = []
-    REQ_FIELDS = ["id","name","module","role","pri","core","points","interact","conf","acs","target"]
+    REQ_FIELDS = ["id","name","module","role","pri","goal","userStory","core","points","interact","conf","acs","target"]
+    static_ids = set(ids)
     for s in stories:
         sid = s.get("id","?")
         for f_ in REQ_FIELDS:
@@ -162,6 +183,10 @@ const src=require('/dev/stdin');
             if dm.get("how") not in ("live","note","none"): sp.append(f"{a.get('id')} how 非法")
             if dm.get("how") == "live" and not (dm.get("fn") or dm.get("act")): sp.append(f"{a.get('id')} live 无 fn|act")
             if dm.get("how") == "note" and not dm.get("note"): sp.append(f"{a.get('id')} note 缺注记元素字段")
+            if dm.get("how") == "live" and not dm.get("path"): sp.append(f"{a.get('id')} live 缺 path")
+            for _k in ("act",):
+                _a = dm.get(_k) or (tg.get(_k) if (tg := s.get("target", {})) else None)
+                if _a and _a not in static_ids and not _a.startswith("$"): sp.append(f"{a.get('id')} {_k} 指向不存在元素 {_a}")
     if sp: red += fail(msgs, "⑧", f"schema 违规 {len(sp)} 处: {sp[:4]}")
     else: ok(msgs, "⑧", f"schema 全合规({len(stories)} stories)")
 
