@@ -1,6 +1,6 @@
 ---
 name: prd-interactive-prototype
-version: "1.5.0"
+version: "1.6.0"
 author: lvwei
 license: MIT
 description: Use when 编写 PRD 或生成可交互原型时，产出带需求卡片双向溯源的自包含 HTML 原型与配套需求卡片文档。
@@ -81,6 +81,8 @@ metadata:
 - 深链：`#story=REQ-xxx` 进 hash 时延时调 locate；MD 需求卡片的「定位原型」链接即写此 hash
 
 ## 扩充需求与交付验证
+
+**AC 级演示映射（通用机制，防「AC 只躺在卡片里」）**：STORIES 每条 AC 必须带 `demo {how: 'live'|'note'|'none', path, view?, tab?, fn?, act?, fault?}`——`live`=可现场演示（path 写「视图·操作·观察点」，fn 指向演示函数注册表）；`note`=页面注记承载；`none`=无载体（显式欠账，交付必须点名）。原型侧抽屉 AC 行渲染「演示 ▶」按钮，点击 `locateFromAC(acId)` 完成切视图/tab → 注故障档 → 调演示函数；note/none 原位标注不伪装。故障档说明文案由 `demo.fault` 反查生成（单一数据源，勿手写字符串）。**交付门**：脚本输出「AC→载体覆盖表」（每条 AC 一行 how+path），`none` 清单非空必须在汇报里点名；覆盖率是可核对指标，不是感觉。补演示载体时先加 demo 登记再写功能——覆盖表驱动，不凭感觉分类（曾只顾 REQ 粒度的 reqtag/locate/故障档，99 条 AC 里 18 条一致性对比类全无载体，评审时点开对不上）。
 
 向已有原型增加新 REQ（如从 PRD 里补 REQ-002~005）：
 
