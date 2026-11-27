@@ -1,6 +1,6 @@
 ---
 name: prd-interactive-prototype
-version: "2.0.2"
+version: "2.0.3"
 author: lvwei
 license: MIT
 description: Use when 从详设/PRD 生成需求卡片 MD 与带双向溯源的自包含 HTML 原型，或迭代已有三件套时。
@@ -162,7 +162,7 @@ metadata:
 
 **跑 `scripts/lint-prototype.py <原型.html> [卡片.md]` 全绿 ＋ 浏览器断言清单全绿，才交付**。一次会话内跑完，不留给用户当验收员。
 
-**lint（静态，脚本强制）**：① 静态 id 唯一＋动态 id 表达式唯一（同表达式多模板给 ⚠ 提示人工确认不同屏）② demo.fn ∈ FN_REGISTRY 且 dry-run 无语法错误 ③ demo.fault ∈ 故障档 options ④ ac.id 以父 story.id 开头且 n 连续 ⑤ 零外链（含无引号属性/srcset/url()/@import/fetch/meta refresh）⑥ 徽标载体（剔除 STORIES 块后按 data-req/reqtag/locateFromCard 三类匹配，零命中报红）⑦ 双源对账（set 相等＋条数相等＋无重复＋`-AC\d+` 全位数＋全角空格卡头兼容）⑧ schema 校验（必填字段/target view+fn|act/acs 非空/demo.how 合法/live 有 fn|act/note 有 note 字段）。G3 浏览器侧逐 story 切 target.view 后断言 `[data-req=id]` 元素数≥1
+**lint（静态，脚本强制）**：① 静态 id 唯一＋动态 id 表达式唯一（同表达式多模板给 ⚠ 提示人工确认不同屏）② demo.fn ∈ FN_REGISTRY 且 dry-run 无语法错误 ③ demo.fault ∈ 故障档 options ④ ac.id 以父 story.id 开头且 n 连续 ⑤ 零外链（含无引号属性/srcset/url()/@import/fetch/meta refresh）⑥ 徽标载体（剔除 STORIES 块后按 data-req/reqtag/locateFromCard 三类匹配，零命中报红）⑦ 双源对账（set 相等＋条数相等＋无重复＋`-AC\d+` 全位数＋全角空格卡头兼容）⑧ schema 校验（必填字段含 goal/userStory／target view+fn|act／acs 非空且 id 全格式断言＋序号 1..n 连续／demo.how 合法／live 有 fn|act 且带 path／note 有 note 字段／act 指向的静态 id 存在）。G3 浏览器侧逐 story 切 target.view 后断言 `[data-req=id]` 元素数≥1
 
 **浏览器断言 checklist**：
 - **G1 定位即展示四连**：逐卡 locateFromCard，含最不利三状态（fault=success／空态对象／过滤态）

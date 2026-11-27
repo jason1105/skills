@@ -46,19 +46,18 @@ def main():
 
     # FN_REGISTRY 提取(兼容简写/引号键/箭头函数/任意缩进)
     reg = re.search(r"const FN_REGISTRY\s*=\s*\{(.*?)\n\};", t, re.S)
+    # 键集经 node 沙箱 eval 取 Object.keys(手写解析对字符串/注释内括号与 async 简写均不可靠, 见下 dry-run 探针)
     reg_fns = set()
-    if reg:
-        depth, cur = 1, ""   # 括号深度提取: 只收 depth==1 行首的键(简写 name( / 引号键 'name': / name:)
-        for line in reg.group(1).splitlines():
-            stripped = line.strip()
-            if depth == 1 and stripped and not stripped.startswith("//"):
-                km = re.match(r"['\"]?([\w-]+)['\"]?\s*(?:\(|\s*:\s*(?:function|\(|async))", stripped)
-                if km: cur = km.group(1)
-            for ch in line:
-                if ch in "{([": depth += 1
-                elif ch in "})]": depth -= 1
-            if cur and depth == 1:
-                reg_fns.add(cur); cur = ""
+    reg_keys_js = None
+    if reg and which("node"):
+        with tempfile.TemporaryDirectory() as td:
+            kf = os.path.join(td, "keys.js")
+            open(kf, "w").write("const FN={" + reg.group(1) + "};console.log(JSON.stringify(Object.keys(FN)));")
+            r = subprocess.run(["node", kf], capture_output=True, text=True, timeout=30)
+            try:
+                reg_keys_js = set(json.loads(r.stdout.strip().splitlines()[-1]))
+            except Exception:
+                red += fail(msgs, "②", f"FN_REGISTRY 无法在 node 中求值: {(r.stderr or '')[:100]}")
 
     # 故障档
     fsel = re.search(r'<select[^>]*id="fault"[^>]*>(.*?)</select>', t, re.S)
@@ -70,44 +69,31 @@ def main():
         dms = [a.get("demo", {}) for a in s.get("acs", [])] + ([s.get("target", {})] if s.get("target") else [])
         all_dms.extend(dms); all_acs.extend((s, a) for a in s.get("acs", []))
     fns_used = {dm.get("fn") for dm in all_dms if dm.get("fn")}
+    reg_fns = reg_keys_js if reg_keys_js is not None else reg_fns
     dead = {f for f in fns_used if f not in reg_fns}
     if dead: red += fail(msgs, "②", f"demo.fn 死键: {sorted(dead)}")
     else:
-        # dry-run: node 里逐键解析函数体(简写键), 收集 SyntaxError; 子进程崩溃本身=红
-        dry_err = []
+        # dry-run: 注册表整体在 node 求值(它本就是合法 JS; 任何解析失败/崩溃=红), 语法错误由语法门兜
         if which("node") and reg:
-            probe = """
-const __els={};const __mk=()=>({style:{},classList:{add(){},remove(){},contains(){return false}},setAttribute(){},removeAttribute(){},addEventListener(){},appendChild(){},remove(){},click(){},scrollIntoView(){},querySelector(){return null},querySelectorAll(){return[]},getBoundingClientRect(){return{width:0,height:0,top:0,bottom:0,left:0,right:0}},innerHTML:'',textContent:'',value:'',disabled:false,checked:false,options:[],dataset:{}});
-global.document={getElementById:(id)=>__els[id]||(__els[id]=__mk()),querySelector:()=>null,querySelectorAll:()=>[],createElement:()=>__mk(),addEventListener(){},body:{classList:{add(){},remove(){},contains(){return false}}},documentElement:__mk()};
-global.window={addEventListener(){},location:{hash:''}};
-global.localStorage={getItem:()=>null,setItem(){},removeItem(){}};
-global.history={replaceState(){}};
-global.confirm=()=>true;global.setTimeout=(f)=>0;global.requestAnimationFrame=(f)=>0;
-"""
             with tempfile.TemporaryDirectory() as td:
-                # 轻量法: 每键函数体包成函数表达式做语法解析, 只报 SyntaxError(引用错误由浏览器 G2 兜)
-                js_probe = (probe
-                    + "\nconst FN={" + reg.group(1) + "};\n"
-                    + "const out=[];for(const k of Object.keys(FN)){try{const src=FN[k].toString();new Function('const o={'+k+':('+src.replace(/^\\s*\\w+\\s*/, 'function ')+')};return true')();}catch(e){if(e instanceof SyntaxError)out.push(k+':'+e.message)}}"
-                    + "console.log(JSON.stringify(out));")
                 pf = os.path.join(td, "dry.js")
-                open(pf, "w").write(js_probe)
+                open(pf, "w").write("const FN={" + reg.group(1) + "};console.log(JSON.stringify({keys:Object.keys(FN),ok:1}));")
                 r = subprocess.run(["node", pf], capture_output=True, text=True, timeout=30)
                 last = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
                 try:
-                    errs = json.loads(last)
-                    if not isinstance(errs, list): raise ValueError
+                    parsed = json.loads(last)
+                    if not isinstance(parsed, dict): raise ValueError
+                    if reg_keys_js is None: reg_keys_js = set(parsed["keys"])
+                    ok(msgs, "②", f"demo.fn 全部存在({len(reg_fns)})且注册表 node 求值通过")
                 except Exception:
-                    # 探针自身崩溃(如任一函数体有 SyntaxError 导致整体解析失败) = 红, 不吞
                     red += fail(msgs, "②", f"dry-run 探针异常(rc={r.returncode}): {(r.stderr or last)[:100]}")
-                    errs = None
-                if errs is not None:
-                    if errs:
-                        red += fail(msgs, "②", f"demo.fn dry-run 语法错误: {errs[:3]}")
-                    else:
-                        ok(msgs, "②", f"demo.fn 全部存在({len(reg_fns)})且 dry-run 无语法错误")
+        elif not reg:
+            red += fail(msgs, "②", "FN_REGISTRY 未找到")
         else:
             ok(msgs, "②", f"demo.fn 全部存在({len(reg_fns)}); node 缺失跳过 dry-run")
+        dead = {f for f in fns_used if f not in (reg_keys_js if reg_keys_js is not None else reg_fns)}
+        if dead:
+            red += fail(msgs, "②", f"demo.fn 死键: {sorted(dead)}")
 
     # ③ demo.fault ∈ options
     badf = {dm.get("fault") for dm in all_dms if dm.get("fault") and dm["fault"] not in faults}
@@ -118,8 +104,9 @@ global.confirm=()=>true;global.setTimeout=(f)=>0;global.requestAnimationFrame=(f
     broken = [(s["id"], a["id"]) for s, a in all_acs if not str(a.get("id","")).startswith(s["id"])]
     gaps = []
     for s in stories:
+        bad_fmt = [a.get("id") for a in s.get("acs", []) if not re.fullmatch(re.escape(s["id"]) + r"-AC\d+", str(a.get("id","")))]
         nums = sorted(int(m.group(1)) for a in s.get("acs", []) if (m := re.match(r".*-AC(\d+)$", str(a.get("id","")))))
-        if nums != list(range(1, len(nums)+1)): gaps.append(s["id"])
+        if bad_fmt or nums != list(range(1, len(nums)+1)): gaps.append(f"{s['id']}" + (f"(畸形:{bad_fmt[:1]})" if bad_fmt else ""))
     if broken: red += fail(msgs, "④", f"AC 前缀断裂 {len(broken)}/{len(all_acs)}, 例 {broken[:2]}")
     elif gaps: red += fail(msgs, "④", f"AC 序号不连续(须 1..n): {gaps[:3]}")
     else: ok(msgs, "④", f"ac.id 前缀+序号连续({len(all_acs)} 条)")
