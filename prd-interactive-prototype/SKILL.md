@@ -1,6 +1,6 @@
 ---
 name: prd-interactive-prototype
-version: "2.0.3"
+version: "2.0.4"
 author: lvwei
 license: MIT
 description: Use when 从详设/PRD 生成需求卡片 MD 与带双向溯源的自包含 HTML 原型，或迭代已有三件套时。
@@ -133,10 +133,12 @@ metadata:
 - **定位即展示**（卡片▶是硬验收点）：四连断言①view/tab 正确 ②act/fn 有副作用 ③落点 `getBoundingClientRect()` 在视口内 ④定位条/高亮指向它。首屏可见性不设硬要求（功能藏几级交互都合法），但定位必须把功能展示给用户〔事故〕locate 丢了 act 执行＋徽标长在依赖演示数据的条件行上，点完定位页面无变化
 - 落点必须**无条件渲染**（不依赖选中记录/过滤态）；动态重复元素禁裸 id（用 class＋data）；**最不利状态复核**固定三组合：`fault=success`＋空态对象（如空草稿）＋带过滤词
 
-**C2 自然可达性**
-- 每个 demo 载体除抽屉定位外，必须有**纯界面操作路径**——「只有定位能打开、界面无入口」＝演示孤岛，不合格
-- `demo.path` 是**可执行点击序列**（非描述文字）：从 seed 默认状态出发 ≤4 步的 UI 操作（如 `报告定义页 · 选中草稿 · 点「＋新增绑定」`）；核查按序列点击后断言载体可见
+**C2 自然可达性＋正常逻辑优先**
+- 每个 demo 载体除抽屉定位外，必须有**纯界面操作路径**——「只有定位能打开、界面上没有入口」＝演示孤岛，不合格
+- `demo.path` 是**可执行点击序列**（非描述文字）：从 seed 默认状态出发 ≤4 步的 UI 操作（如 `报告定义页 · 选中草稿 · 未绑定行点「去绑定」`）；核查按序列点击后断言载体可见
 - 入口不得绑在依赖演示数据状态的条件渲染上〔事故〕「配置」按钮只在草稿且有绑定行时渲染，而 seed 唯一草稿是空草稿→零入口；空态对象必须提供「新增/起步」入口
+- **正常逻辑优先**：演示入口优先用产品正常操作链（上传解析出的占位符清单、选中记录、切 tab）；正常逻辑走不通才允许验证按钮，且必须标注「**仅限需求验证，非产品功能**」（样式区分：虚线边框/⚠ 前缀/title），不得与正常功能按钮无差别混排〔事故〕绑定表渲染错误显示「暂无绑定」后，发明「＋新增绑定」聚合按钮当正常入口还挂了需求徽标——连环错：正确修法是修渲染逻辑（占位符清单驱动），验证按钮冒充正常功能本身是新缺陷
+- **seed 一致性**：同一业务事实在 seed/派生视图里只允许一个事实源——绑定表、绑定进度（x/y）、模板占位符 bind 状态必须由「模板 phList ＋ 定义 binds」派生计算，禁止手工双写〔事故〕三处静态数据各说各话：模板有 3 占位符、绑定表显示「暂无绑定」、进度写 3/15（15 是别的模板的数）——评审一眼看穿；派生渲染（bindRows/defBindProgress 模式）＋ lint⑨ 对账
 
 **C3 AC 演示映射＋覆盖表**
 - 每条 AC 带 demo（B2 schema）；抽屉 AC 行渲染「演示▶」（live）或原位标注（note/none 不伪装成可演示）
@@ -162,7 +164,7 @@ metadata:
 
 **跑 `scripts/lint-prototype.py <原型.html> [卡片.md]` 全绿 ＋ 浏览器断言清单全绿，才交付**。一次会话内跑完，不留给用户当验收员。
 
-**lint（静态，脚本强制）**：① 静态 id 唯一＋动态 id 表达式唯一（同表达式多模板给 ⚠ 提示人工确认不同屏）② demo.fn ∈ FN_REGISTRY 且 dry-run 无语法错误 ③ demo.fault ∈ 故障档 options ④ ac.id 以父 story.id 开头且 n 连续 ⑤ 零外链（含无引号属性/srcset/url()/@import/fetch/meta refresh）⑥ 徽标载体（剔除 STORIES 块后按 data-req/reqtag/locateFromCard 三类匹配，零命中报红）⑦ 双源对账（set 相等＋条数相等＋无重复＋`-AC\d+` 全位数＋全角空格卡头兼容）⑧ schema 校验（必填字段含 goal/userStory／target view+fn|act／acs 非空且 id 全格式断言＋序号 1..n 连续／demo.how 合法／live 有 fn|act 且带 path／note 有 note 字段／act 指向的静态 id 存在）。G3 浏览器侧逐 story 切 target.view 后断言 `[data-req=id]` 元素数≥1
+**lint（静态，脚本强制）**：① 静态 id 唯一＋动态 id 表达式唯一（同表达式多模板给 ⚠ 提示人工确认不同屏）② demo.fn ∈ FN_REGISTRY 且 dry-run 无语法错误 ③ demo.fault ∈ 故障档 options ④ ac.id 以父 story.id 开头且 n 连续 ⑤ 零外链（含无引号属性/srcset/url()/@import/fetch/meta refresh）⑥ 徽标载体（剔除 STORIES 块后按 data-req/reqtag/locateFromCard 三类匹配，零命中报红）⑦ 双源对账（set 相等＋条数相等＋无重复＋`-AC\d+` 全位数＋全角空格卡头兼容）⑧ schema 校验（必填字段含 goal/userStory／target view+fn|act／acs 非空且 id 全格式断言＋序号 1..n 连续／demo.how 合法／live 有 fn|act 且带 path／note 有 note 字段／act 指向的静态 id 存在）⑨ seed 一致性（定义进度 x/y 分母＝所引模板占位符数，防手工双写漂移）。G3 浏览器侧逐 story 切 target.view 后断言 `[data-req=id]` 元素数≥1
 
 **浏览器断言 checklist**：
 - **G1 定位即展示四连**：逐卡 locateFromCard，含最不利三状态（fault=success／空态对象／过滤态）

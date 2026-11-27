@@ -177,6 +177,23 @@ def main():
     if sp: red += fail(msgs, "⑧", f"schema 违规 {len(sp)} 处: {sp[:4]}")
     else: ok(msgs, "⑧", f"schema 全合规({len(stories)} stories)")
 
+    # ⑨ seed 一致性: 定义 bind 'x/y' 与 模板占位符数/实际绑定数 对账(静态字段存在时)
+    # (原型若已用派生渲染 defBindProgress, seed 静态字段仅作初始快照——不匹配即红, 防手工双写漂移)
+    seed_tpl = {}
+    for tm in re.finditer(r"\{id:'(T-\d+)'[^}]*?phList:\[(.*?)\]\}", t, re.S):
+        phs = re.findall(r"n:'([\w]+)'", tm.group(2))
+        seed_tpl[tm.group(1)] = phs
+    seed_bad = []
+    for dm_ in re.finditer(r"\{id:'(D-\d+)'[^}]*?tpl:'(T-\d+) v\d+'[^}]*?bind:'(\d+)/(\d+)'", t):
+        did, tid, xb, yb = dm_.groups()
+        phs = seed_tpl.get(tid)
+        if phs is None: continue  # 模板不可解析(结构变化)时跳过
+        if int(yb) != len(phs): seed_bad.append(f"{did}: bind 分母 {yb} ≠ {tid} 占位符数 {len(phs)}")
+    if seed_bad:
+        red += fail(msgs, "⑨", f"seed 一致性: {seed_bad[:3]}")
+    else:
+        ok(msgs, "⑨", "seed 定义进度分母与模板占位符数一致")
+
     # 语法门: 全部 script 块
     if which("node"):
         blocks = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", t, re.S)

@@ -1,5 +1,6 @@
 # CHANGELOG
 
+- 2.0.4 — 逻辑不自洽事故驱动：C2 增「正常逻辑优先」（验证按钮必须标注「仅限需求验证」且样式区分，禁止冒充正常功能入口）与「seed 一致性」（派生渲染单一事实源，lint⑨ 对账）
 - 2.0.3 — 评审修复轮③（round-3 六项）：FN_REGISTRY 键集改 node 沙箱 Object.keys 单次求值（根治字符串内括号/async 简写/注释三类误判，同时覆盖键集与求值崩溃检测）；④ AC 全格式断言＋1..n 连续；⑧ 描述补齐（goal/userStory/live path/act 存在性）；CHANGELOG 补 2.0.2
 - 2.0.2 — 评审修复轮②（round-2 九项＋round-3 六项）：FN_REGISTRY 改 node 沙箱 Object.keys 提取（根治字符串内括号/async 简写两类误判）；dry-run 包装分流（async 箭头/function 原样包）；探针崩溃报红；④ AC 全格式断言＋1..n 连续；⑧ 增强（goal/userStory/live path/act 存在性）；版本化标题正则泛化；③ 档位限定 select#fault；死代码清理
 - 2.0.1 — 评审修复轮①（round-1 13 项）：lint② dry-run 真跑 node；lint⑥ 剔除 STORIES 后按三类载体匹配；lint⑧ schema 校验；lint① data-id 守卫＋动态 id 降提示；MD 标题门（## REQ 二级红＋版本化节标题红）；lint⑦ 正则加严（AC\d+/全角空格/set+条数+重复）；B2 demo.note 字段；STORIES 纯 JSON 排版约束
