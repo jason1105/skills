@@ -1,6 +1,6 @@
 ---
 name: prd-interactive-prototype
-version: "1.6.0"
+version: "1.7.0"
 author: lvwei
 license: MIT
 description: Use when 编写 PRD 或生成可交互原型时，产出带需求卡片双向溯源的自包含 HTML 原型与配套需求卡片文档。
@@ -73,7 +73,7 @@ metadata:
 - 面板主体自上而下：全宽搜索框（按编号/需求/业务规则全文过滤，含验收 GIVEN/WHEN/THEN）→ 横向可滚动模块筛选 chips（全部/各模块，选中态高亮）→ 计数行（N / 总数）→ 卡片列表独立纵向滚动。抽屉骨架（头部/搜索/chips 容器）只建一次，搜索/筛选只重绘列表区容器，chip 选中态切 class 不重建
 - 每条卡片一行三列：左侧等宽需求编号（REQ-xxx）＋中间名称与模块/优先级元数据＋右侧圆形定位按钮（▶，stopPropagation）；点击行展开/收起详情（四段式：【1.业务背景】【2.用户故事】【3.功能描述】【4.验收标准】）
 - **卡片默认全部折叠**；每次打开抽屉重置全部抽屉状态（展开 storyOpen、搜索词 storyQuery、模块筛选 storyModule 三者都清）；单击卡片行只切换单卡明细的 `display`，**绝不重建抽屉壳**——壳含滑入动画，重建即重放动画、抽屉每点一次闪一次（用户明确反馈过）。任何抽屉内交互要么只改局部 DOM（展开/收起），要么只重绘列表区（搜索/筛选），整页 render() 仅用于打开/关闭抽屉本身
-- 数据层：`window.STORIES` 数组，每条需求一个结构化对象，字段含 id/name/module/role/priority/background/userStory/content[]/acceptance[]/extraAnchors[]/requirementSource/原型定位 target（view/id/type/tab/version/action）
+- 数据层：`window.STORIES` 数组，每条需求一个结构化对象，字段含 id/name/module/role/priority/background/userStory/content[]/acceptance[]/extraAnchors[]/requirementSource/原型定位 target（view/id/type/tab/version/action）＋ 每条 AC 的 demo（见「AC 级演示映射」节）。**target schema 强制项**：除 view/tab 外必须带 `act`（点谁，元素 id）或 `fn`（调什么，演示函数名）之一——纯视图跳转的 target 不合格；定位执行的落点元素（徽标/面板/弹窗）必须在该视图**无条件渲染**（不依赖选中哪条演示记录、哪个过滤态），否则换一条演示数据定位就落空。动态渲染的重复元素禁用裸 id（如多行同 id），用 class + data 属性定位
 - 验收格式：每条验收用 given/when/then 三段式，编号到 `REQ-xxx-ACn` 粒度
 - 视觉：面板大圆角（左上/左下）、柔性阴影、轻遮罩（≈8% 黑）；滑入动画 ≈0.2s
 - 定位层：`window.Prototype.locate(story)` 接收需求编号，自动完成：切角色 → 跳页面 → 切 tab → 选中版本 → 自动点击目标按钮；**从卡片定位后抽屉保持打开**（用户明确要求，评审时开着抽屉逐条点 ▶、旁边原型页切换对着看），只在底层页面显示定位提示条；操作中途被叫定位时提示先完成当前操作
@@ -92,7 +92,7 @@ metadata:
 4. **追加族的 target 视图选承载视图**：预留型 REQ 的 target 落在体现其语义的视图（判定证据→台账/钻取、规则语义→规则库、版本快照走查→示例播放器），别图省事全指向规则库——错放会放大徽标覆盖缺口且评审时卡片跳过去对不上内容
 5. **徽标覆盖核查（追加族必做）**：逐条新 REQ 断言「在其 target 视图（含被复用的既有视图）上至少有一个 reqtag 徽标」——抽屉里有卡片、▶ 也能跳，但跳到的页面上看不到自己的编号，是追加族最典型的覆盖缺口（新 REQ 常落在既有视图里，而既有视图的徽标只标了旧 REQ）；缺口就往该视图 H2/列头/关键行补徽标。验证走真实用户路径「关抽屉→切 target 视图→点该徽标→卡片展开」，别只查 STORIES 存在性
 
-交付前用浏览器自动化验证（不是靠肉眼）：逐条 `locateFromCard(id)` 后读 `page.view/page.tab`、断言抽屉仍在且未重建（记录壳节点引用比对身份）、抽屉内展开/搜索/筛选状态保持、定位条出现；**再反向逐个点页面上的 reqtag 徽标（含嵌在可点击行/Tab 内的），断言：抽屉打开、壳节点身份不变、目标卡片 `.open` 且 `getBoundingClientRect()` 落在抽屉滚动可视区内、高亮描边出现；带活动搜索词/模块 chip 时点 reqtag，断言过滤被清（storyQuery 空、chip 回「全部」）、目标可见——专防“目标被筛掉、点击像没反应”的洞；页面标注开关关掉后页面 reqtag 全隐、抽屉内卡片不受影响**；再逐场景点按钮验证弹窗/toast/数据副作用（如上传后版本号+1、坏文件不污染数据、reset 可恢复）；故障注入开关下断言按钮禁用态。一次会话内跑完，不留给用户当验收员。验证脚本陷阱：`dispatchEvent(new Event('change'))` 默认不冒泡，document 级委托监听收不到——要传 `{bubbles:true}`；toast 断言前先等旧 toast 消失（3.2s 自动移除）或收集全部 toast 队列再取最后一条，避免读到上一条残留；Python 验证脚本里拼长 JS 字符串易遗括号/引号直接 SyntaxError——拆成多条短 js() 调用更稳。
+交付前用浏览器自动化验证（不是靠肉眼）：**「定位即展示」契约（卡片 ▶ 是硬验收点）**——首屏可见性不设硬性要求（功能藏在几级交互里都合法），但从抽屉点定位按钮后必须**把功能展示给用户**：逐条 `locateFromCard(id)` 断言四连——① view/tab 正确 ② 执行了 target 的 act/fn（有副作用：弹窗开/面板出/按钮被点）③ 落点元素（徽标/面板/弹窗）`getBoundingClientRect()` 在视口内 ④ 定位条或高亮指到它。「view/tab 对了但用户什么也没看到」＝红（曾实发：locate 重构丢了 act 执行，且徽标长在依赖演示数据状态的条件行上，切到空绑定草稿后定位落空，用户点完定位页面无任何变化）。落点断言须在**最不利演示数据状态**下复核一遍（如空草稿、停用态、过滤态）。再反向逐个点页面上的 reqtag 徽标（含嵌在可点击行/Tab 内的），断言：抽屉打开、壳节点身份不变、目标卡片 `.open` 且 `getBoundingClientRect()` 落在抽屉滚动可视区内、高亮描边出现；带活动搜索词/模块 chip 时点 reqtag，断言过滤被清（storyQuery 空、chip 回「全部」）、目标可见——专防“目标被筛掉、点击像没反应”的洞；页面标注开关关掉后页面 reqtag 全隐、抽屉内卡片不受影响**；再逐场景点按钮验证弹窗/toast/数据副作用（如上传后版本号+1、坏文件不污染数据、reset 可恢复）；故障注入开关下断言按钮禁用态。**产物 lint（HTML 级，交付门并列项）**：① id 唯一性（含动态拼接 id 前缀，重复即红）② demo.fn/fault 引用的函数/档位全部存在（无死键）③ hash 路由与导航项一致。一次会话内跑完，不留给用户当验收员。验证脚本陷阱：`dispatchEvent(new Event('change'))` 默认不冒泡，document 级委托监听收不到——要传 `{bubbles:true}`；toast 断言前先等旧 toast 消失（3.2s 自动移除）或收集全部 toast 队列再取最后一条，避免读到上一条残留；Python 验证脚本里拼长 JS 字符串易遗括号/引号直接 SyntaxError——拆成多条短 js() 调用更稳。
 
 ## 视图与演示数据模式（预留型框架需求适用）
 
